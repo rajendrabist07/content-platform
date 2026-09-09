@@ -1,5 +1,4 @@
-// src/modules/posts/post.repository.ts (पूरा implementation)
-import { Post, Prisma } from '@prisma/client';
+import type { Post, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 
 export interface IPostRepository {

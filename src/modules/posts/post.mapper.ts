@@ -1,5 +1,5 @@
-import { Post } from '@prisma/client';
-import { PostResponseDTO } from './post.dto';
+import type { Post } from '@prisma/client';
+import type { PostResponseDTO } from './post.dto';
 
 export function toPostDTO(post: Post): PostResponseDTO {
   return {

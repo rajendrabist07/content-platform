@@ -1,6 +1,6 @@
 import { postRepository } from './post.repository';
 import { NotFoundError, ConflictError, ForbiddenError } from '../../core/errors/HttpError';
-import { CreatePostInput } from './post.validation';
+import type { CreatePostInput } from './post.validation';
 import { logger } from '../../core/logger/logger';
 
 export class PostService {
