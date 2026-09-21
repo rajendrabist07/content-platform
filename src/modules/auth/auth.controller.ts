@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { authService } from './auth.service';
 import { registerSchema, loginSchema } from './auth.validation';
-import { ValidationError } from '../../core/errors/HttpError';
+import { ValidationError, UnauthorizedError } from '../../core/errors/HttpError';
 
 class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -11,8 +11,7 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      const { user, token } = await authService.register(result.data);
-
+      const { user, accessToken, refreshToken } = await authService.register(result.data);
 
       res.status(201).json({
         success: true,
@@ -23,7 +22,8 @@ class AuthController {
             name: user.name,
             role: user.role,
           },
-          token,
+          accessToken,
+          refreshToken,
         },
       });
     } catch (err) {
@@ -38,7 +38,7 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      const { user, token } = await authService.login(result.data);
+      const { user, accessToken, refreshToken } = await authService.login(result.data);
 
       res.status(200).json({
         success: true,
@@ -49,9 +49,39 @@ class AuthController {
             name: user.name,
             role: user.role,
           },
-          token,
+          accessToken,
+          refreshToken,
         },
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async refresh(req: Request, res: Response, next: NextFunction) {
+    try {
+      const refreshToken = req.body.refreshToken;
+      if (typeof refreshToken !== 'string' || !refreshToken) {
+        throw new ValidationError('refreshToken is required');
+      }
+
+      const { accessToken } = await authService.refreshAccessToken(refreshToken);
+
+      res.status(200).json({ success: true, data: { accessToken } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+      const refreshToken = req.body.refreshToken;
+      if (typeof refreshToken !== 'string' || !refreshToken) {
+        throw new ValidationError('refreshToken is required');
+      }
+
+      await authService.logout(refreshToken);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

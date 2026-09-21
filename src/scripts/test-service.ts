@@ -29,12 +29,12 @@ async function main() {
   }
 
 
-  const published = await postService.publishPost(post.id, user.id);
+  const published = await postService.publishPost(post.id, user.id, user.role);
   console.log('Published:', published.status, published.publishedAt);
 
 
   try {
-    await postService.publishPost(post.id, user.id);
+    await postService.publishPost(post.id, user.id, user.role);
   } catch (err: any) {
     console.log('Test 4 (expected error):', err.message);
   }
