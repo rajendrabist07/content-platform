@@ -1,0 +1,601 @@
+{
+  "info": {
+    "_postman_id": "02dacdd6-2e58-48d5-9376-7698fe8cecf6",
+    "name": "Content Platform API",
+    "description": "Backend API for the Content Platform learning project (Organizations, Users, Posts, Comments).\n\n**Response envelope** — every response has the shape `{ success, data?, message?, statusCode? }`. Validation failures (400) include a specific `message` describing the first failing field.\n\n**Errors** — `success: false` with a human-readable `message` and matching HTTP `statusCode` (400 validation, 401 auth, 403 authorization, 404 not found, 409 conflict, 429 rate-limited, 500 unexpected).\n\n## Base URL\n\n`http://localhost:3000/api/v1`\n\nEvery request in this collection uses `{{baseUrl}}`, which resolves from the **Content Platform - Local** environment. Select that environment from the dropdown before sending requests.\n\n## Authentication\n\n`POST /auth/login` and `POST /auth/register` both return two tokens:\n\n- **`data.accessToken`** — send as `Authorization: Bearer {{accessToken}}` on every protected request. Valid for 15 minutes.\n- **`data.refreshToken`** — store it, send it in the body of `POST /auth/refresh` to get a new access token without logging in again.\n\nThis collection captures both tokens into the environment automatically on register/login (see each request's Tests tab) — every other request already reads `{{accessToken}}`, so you never copy-paste a token by hand.\n\n`POST /auth/logout` deletes the refresh token server-side (revocation), so a stolen refresh token stops working immediately after logout.\n\n## Authorization model\n\nOwnership-based: only the author of a Post or Comment can update/publish/delete it (403 otherwise). Posts and Comments are scoped to the caller's Organization (from the token, never from the request body) — cross-organization access returns 404, not 403, to avoid leaking existence of other orgs' data.\n\n## Using this collection\n\nRun **Auth → Register** once (or **Login** if the user already exists) — `accessToken`, `refreshToken`, and `userId` are captured into the environment automatically. Creating a Post likewise saves `postId`, and creating a Comment saves `commentId`, which the matching update/publish/delete requests already use in their URLs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51591916",
+    "_collection_link": "https://go.postman.co/collection/51591916-02dacdd6-2e58-48d5-9376-7698fe8cecf6?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('userId', body.data.user.id);",
+                  "  console.log('Captured accessToken, refreshToken, userId into environment.');",
+                  "}",
+                  "",
+                  "pm.test('Status is 201 or a handled error', function () {",
+                  "  pm.expect([201, 404, 409, 400]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"New User\",\n  \"organizationId\": \"{{organizationId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Creates a new user in the given Organization. Returns the user (never the password hash) plus an access/refresh token pair. 409 if the email is already registered, 404 if the organizationId doesn't exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('userId', body.data.user.id);",
+                  "  console.log('Captured accessToken, refreshToken, userId into environment.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates an existing user. Returns the same shape as Register. Wrong email and wrong password both return the same 401 message ('Invalid email or password') to avoid leaking which emails are registered. Rate-limited to 5 attempts per 15 minutes per IP (failed attempts only)."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  console.log('Captured new accessToken into environment.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Exchanges a valid, non-expired refresh token for a new access token. The refresh token itself is NOT rotated in this API — it keeps working until it expires (30 days) or logout revokes it. 401 if the refresh token is invalid, expired, or already logged out."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Deletes the refresh token server-side. Returns 204 No Content. After this, the same refreshToken will get 401 from /auth/refresh — this is the proof of real revocation, not just client-side token deletion."
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "Create Post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('postId', body.data.id);",
+                  "  console.log('Captured postId into environment: ' + body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"My First Post\",\n  \"content\": \"This is the content of my post, at least ten characters long.\",\n  \"status\": \"DRAFT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ]
+            },
+            "description": "Creates a Post. `authorId` and `organizationId` are taken from the access token, never from the request body — this prevents a client from claiming someone else's identity. `slug` is auto-generated from `title` and must be unique per organization (409 on collision)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Posts (paginated)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Returns Posts belonging to the caller's Organization only. `page`/`limit` are sanitized server-side (invalid values fall back to defaults, `limit` is capped at 100). Response includes `pagination: { page, limit, total, totalPages }`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}"
+              ]
+            },
+            "description": "404 if the post doesn't exist OR belongs to a different organization — same status code for both cases so a caller can't distinguish 'wrong org' from 'doesn't exist'."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Title\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}"
+              ]
+            },
+            "description": "Partial update — send only the fields you want to change (`title` and/or `content`). 403 if the caller isn't the post's author."
+          },
+          "response": []
+        },
+        {
+          "name": "Publish Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "publish"
+              ]
+            },
+            "description": "Sets status to PUBLISHED and stamps publishedAt. 403 if the caller isn't the author, 409 if already published."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}"
+              ]
+            },
+            "description": "Soft delete (sets deletedAt; the row stays in the database). Returns 204 No Content. 403 if the caller isn't the author."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Create Comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('commentId', body.data.id);",
+                  "  console.log('Captured commentId into environment: ' + body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This is my comment.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "comments"
+              ]
+            },
+            "description": "Creates a top-level comment on a post. To create a threaded reply instead, add `\"parentId\": \"<commentId>\"` to the body — the parent comment must exist and belong to the same post. 404 if the post doesn't exist."
+          },
+          "response": []
+        },
+        {
+          "name": "List Comments (threaded)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "comments"
+              ]
+            },
+            "description": "Returns only top-level comments (`parentId: null`); each one carries a nested `replies` array (one level deep)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated comment content.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments/{{commentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "comments",
+                "{{commentId}}"
+              ]
+            },
+            "description": "403 if the caller isn't the comment's author."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments/{{commentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "comments",
+                "{{commentId}}"
+              ]
+            },
+            "description": "Soft delete. Returns 204 No Content. 403 if the caller isn't the comment's author."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "organizationId",
+      "value": ""
+    },
+    {
+      "key": "postId",
+      "value": ""
+    },
+    {
+      "key": "commentId",
+      "value": ""
+    }
+  ]
+}
