@@ -18,6 +18,4 @@ https://documenter.getpostman.com/view/51591916/2sBYB2qmsV
 - CI/CD via GitHub Actions
 READMEEOF
 
-git add README.md
-git commit -m "Add README with API documentation link"
-git push
+
