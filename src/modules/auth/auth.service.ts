@@ -25,12 +25,47 @@ class AuthService {
       throw new ConflictError('Email already registered');
     }
 
-    const org = await prisma.organization.findUnique({
-      where: { id: input.organizationId },
-    });
+    let organizationId: string;
+    let role: 'OWNER' | 'MEMBER';
 
-    if (!org) {
-      throw new NotFoundError('Organization not found');
+    if (input.organizationName) {
+
+      const baseSlug = input.organizationName
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-');
+
+      // Slug collision handle garne — same name ko organization pahile nai chha bhane,
+      // random suffix thapने (jasto "acme-inc-a1b2c3")
+      let slug = baseSlug;
+      const existingOrg = await prisma.organization.findUnique({ where: { slug } });
+      if (existingOrg) {
+        slug = `${baseSlug}-${crypto.randomBytes(3).toString('hex')}`;
+      }
+
+      const newOrg = await prisma.organization.create({
+        data: { name: input.organizationName, slug },
+      });
+
+      organizationId = newOrg.id;
+      role = 'OWNER';
+    } else {
+
+      if (!input.organizationId) {
+        throw new NotFoundError('Organization');
+      }
+
+      const org = await prisma.organization.findUnique({
+        where: { id: input.organizationId },
+      });
+
+      if (!org) {
+        throw new NotFoundError('Organization');
+      }
+
+      organizationId = org.id;
+      role = 'MEMBER';
     }
 
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -40,11 +75,12 @@ class AuthService {
         email: input.email,
         passwordHash,
         name: input.name,
-        organizationId: input.organizationId,
+        organizationId,
+        role,
       },
     });
 
-    logger.info({ userId: user.id }, 'New user registered');
+    logger.info({ userId: user.id, organizationId, role }, 'New user registered');
 
     const accessToken = this.generateAccessToken({
       userId: user.id,
