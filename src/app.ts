@@ -1,6 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
-import cors from 'cors';
+import cors, { type CorsOptions } from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { errorMiddleware } from './middleware/errorMiddleware';
@@ -12,13 +12,26 @@ import commentRoutes from './app/api/v1/comments/route';
 import tagRoutes from './app/api/v1/tags/route';
 import healthRoutes from './app/api/v1/health/route';
 
+const corsOptions: CorsOptions = {
+    origin(origin, callback) {
+
+        if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(null, false);
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
+};
+
 export function createApp() {
     const app = express();
 
     app.use(helmet());
-    app.use(cors({
-        origin: env.NODE_ENV === 'production' ? 'https://yourdomain.com' : '*',
-    }));
+
+    app.use(cors(corsOptions));
     app.use(express.json());
 
     app.use('/api/v1/health', healthRoutes);
