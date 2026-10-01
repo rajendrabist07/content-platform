@@ -173,6 +173,11 @@ class AuthService {
       throw new UnauthorizedError('Invalid or expired token');
     }
   }
+
+  async findUserById(userId: string) {
+    return prisma.user.findUnique({ where: { id: userId } });
+  }
+
 }
 
 export const authService = new AuthService();

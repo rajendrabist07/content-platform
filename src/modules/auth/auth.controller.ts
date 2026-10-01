@@ -86,6 +86,33 @@ class AuthController {
       next(err);
     }
   }
+
+  async getMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const user = await authService.findUserById(req.user.userId);
+      if (!user) {
+        throw new UnauthorizedError('User not found');
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
 }
+
 
 export const authController = new AuthController();
