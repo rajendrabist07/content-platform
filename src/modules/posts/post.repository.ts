@@ -20,11 +20,19 @@ export interface IPostRepository {
   softDelete(id: string): Promise<Post>;
 }
 
+
+const authorInclude = {
+  author: { select: { name: true } },
+} as const;
+
 export class PostRepository implements IPostRepository {
   async findById(id: string): Promise<Post | null> {
     return prisma.post.findFirst({
       where: { id, deletedAt: null },
-      include: { tags: { include: { tag: true } } },
+      include: {
+        tags: { include: { tag: true } },
+        ...authorInclude,
+      },
     });
   }
 
@@ -41,13 +49,13 @@ export class PostRepository implements IPostRepository {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-
     const [data, total] = await prisma.$transaction([
       prisma.post.findMany({
         where: { organizationId, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        include: authorInclude,
       }),
       prisma.post.count({
         where: { organizationId, deletedAt: null },
