@@ -3,9 +3,15 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
-import { ConflictError, UnauthorizedError, NotFoundError } from '../../core/errors/HttpError';
+import { ConflictError, UnauthorizedError, NotFoundError, ValidationError } from '../../core/errors/HttpError';
 import { logger } from '../../core/logger/logger';
-import type { RegisterInput, LoginInput } from './auth.validation';
+import { emailService } from '../email/email.service';
+import type {
+  RegisterInput,
+  LoginInput,
+  ChangePasswordInput,
+  ResetPasswordInput,
+} from './auth.validation';
 
 const SALT_ROUNDS = 10;
 
@@ -29,15 +35,12 @@ class AuthService {
     let role: 'OWNER' | 'MEMBER';
 
     if (input.organizationName) {
-
       const baseSlug = input.organizationName
         .toLowerCase()
         .trim()
         .replace(/[^\w\s-]/g, '')
         .replace(/\s+/g, '-');
 
-      // Slug collision handle garne — same name ko organization pahile nai chha bhane,
-      // random suffix thapने (jasto "acme-inc-a1b2c3")
       let slug = baseSlug;
       const existingOrg = await prisma.organization.findUnique({ where: { slug } });
       if (existingOrg) {
@@ -51,7 +54,6 @@ class AuthService {
       organizationId = newOrg.id;
       role = 'OWNER';
     } else {
-
       if (!input.organizationId) {
         throw new NotFoundError('Organization');
       }
@@ -77,10 +79,28 @@ class AuthService {
         name: input.name,
         organizationId,
         role,
+        emailVerifiedAt: null,
       },
     });
 
     logger.info({ userId: user.id, organizationId, role }, 'New user registered');
+
+    // Create verification token and send verification email asynchronously
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await prisma.authToken.create({
+      data: {
+        token: verificationToken,
+        type: 'EMAIL_VERIFICATION',
+        userId: user.id,
+        expiresAt: verificationExpiresAt,
+      },
+    });
+
+    emailService
+      .sendVerificationEmail(user.email, user.name, verificationToken)
+      .catch((err) => logger.error({ err, userId: user.id }, 'Failed to dispatch verification email'));
 
     const accessToken = this.generateAccessToken({
       userId: user.id,
@@ -90,6 +110,176 @@ class AuthService {
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return { user, accessToken, refreshToken };
+  }
+
+  async verifyEmail(token: string) {
+    const authToken = await prisma.authToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (
+      !authToken ||
+      authToken.type !== 'EMAIL_VERIFICATION' ||
+      authToken.usedAt !== null ||
+      authToken.expiresAt < new Date()
+    ) {
+      throw new ValidationError('Invalid or expired verification token');
+    }
+
+    const now = new Date();
+
+    const [user] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: authToken.userId },
+        data: { emailVerifiedAt: now },
+      }),
+      prisma.authToken.update({
+        where: { id: authToken.id },
+        data: { usedAt: now },
+      }),
+    ]);
+
+    logger.info({ userId: user.id }, 'User email verified successfully');
+    return user;
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    // Constant behavior / no user enumeration
+    if (!user || user.emailVerifiedAt) {
+      return;
+    }
+
+    // Invalidate previous unused verification tokens
+    await prisma.authToken.updateMany({
+      where: {
+        userId: user.id,
+        type: 'EMAIL_VERIFICATION',
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.authToken.create({
+      data: {
+        token: verificationToken,
+        type: 'EMAIL_VERIFICATION',
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    emailService
+      .sendVerificationEmail(user.email, user.name, verificationToken)
+      .catch((err) => logger.error({ err, userId: user.id }, 'Failed to resend verification email'));
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    // Constant timing / anti user enumeration
+    if (!user) {
+      return;
+    }
+
+    // Invalidate old password reset tokens
+    await prisma.authToken.updateMany({
+      where: {
+        userId: user.id,
+        type: 'PASSWORD_RESET',
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+
+    await prisma.authToken.create({
+      data: {
+        token: resetToken,
+        type: 'PASSWORD_RESET',
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    emailService
+      .sendPasswordResetEmail(user.email, user.name, resetToken)
+      .catch((err) => logger.error({ err, userId: user.id }, 'Failed to send password reset email'));
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<void> {
+    const authToken = await prisma.authToken.findUnique({
+      where: { token: input.token },
+    });
+
+    if (
+      !authToken ||
+      authToken.type !== 'PASSWORD_RESET' ||
+      authToken.usedAt !== null ||
+      authToken.expiresAt < new Date()
+    ) {
+      throw new ValidationError('Invalid or expired password reset token');
+    }
+
+    const passwordHash = await bcrypt.hash(input.newPassword, SALT_ROUNDS);
+    const now = new Date();
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: authToken.userId },
+        data: { passwordHash },
+      }),
+      prisma.authToken.update({
+        where: { id: authToken.id },
+        data: { usedAt: now },
+      }),
+      // Invalidate all refresh tokens to force re-login across all devices
+      prisma.refreshToken.deleteMany({
+        where: { userId: authToken.userId },
+      }),
+    ]);
+
+    logger.info({ userId: authToken.userId }, 'Password reset successfully');
+  }
+
+  async changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User');
+    }
+
+    const isMatch = await bcrypt.compare(input.oldPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedError('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(input.newPassword, SALT_ROUNDS);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      prisma.refreshToken.deleteMany({
+        where: { userId },
+      }),
+    ]);
+
+    logger.info({ userId }, 'Password changed successfully');
   }
 
   async login(input: LoginInput) {
@@ -177,7 +367,6 @@ class AuthService {
   async findUserById(userId: string) {
     return prisma.user.findUnique({ where: { id: userId } });
   }
-
 }
 
 export const authService = new AuthService();

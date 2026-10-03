@@ -1,6 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
 import { authService } from './auth.service';
-import { registerSchema, loginSchema } from './auth.validation';
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  changePasswordSchema,
+  resendVerificationSchema,
+} from './auth.validation';
+import { toUserDTO } from './auth.mapper';
 import { ValidationError, UnauthorizedError } from '../../core/errors/HttpError';
 
 class AuthController {
@@ -16,12 +24,7 @@ class AuthController {
       res.status(201).json({
         success: true,
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-          },
+          user: toUserDTO(user),
           accessToken,
           refreshToken,
         },
@@ -43,15 +46,107 @@ class AuthController {
       res.status(200).json({
         success: true,
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-          },
+          user: toUserDTO(user),
           accessToken,
           refreshToken,
         },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async verifyEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const token = (req.query.token as string) || req.body?.token;
+      if (!token || typeof token !== 'string') {
+        throw new ValidationError('Verification token is required');
+      }
+
+      const user = await authService.verifyEmail(token);
+
+      res.status(200).json({
+        success: true,
+        message: 'Email verified successfully',
+        data: {
+          user: toUserDTO(user),
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async resendVerification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = resendVerificationSchema.safeParse(req.body);
+      if (!result.success) {
+        throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
+      }
+
+      await authService.resendVerification(result.data.email);
+
+      res.status(200).json({
+        success: true,
+        message: 'If your email is registered and unverified, a verification link has been sent.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = forgotPasswordSchema.safeParse(req.body);
+      if (!result.success) {
+        throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
+      }
+
+      await authService.forgotPassword(result.data.email);
+
+      res.status(200).json({
+        success: true,
+        message: 'If your email is registered, a password reset link has been sent.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = resetPasswordSchema.safeParse(req.body);
+      if (!result.success) {
+        throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
+      }
+
+      await authService.resetPassword(result.data);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password reset successfully. Please log in with your new password.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const result = changePasswordSchema.safeParse(req.body);
+      if (!result.success) {
+        throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
+      }
+
+      await authService.changePassword(req.user.userId, result.data);
+
+      res.status(200).json({
+        success: true,
+        message: 'Password changed successfully. Please log in with your new password.',
       });
     } catch (err) {
       next(err);
@@ -100,19 +195,12 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        },
+        data: toUserDTO(user),
       });
     } catch (err) {
       next(err);
     }
   }
-
 }
-
 
 export const authController = new AuthController();

@@ -1,18 +1,18 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { prisma } from '../../../../lib/prisma';
 import { logger } from '../../../../core/logger/logger';
 
 const router = Router();
 
-router.get('/', (req, res) => {
+export function handleLivenessCheck(req: Request, res: Response) {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
-});
+}
 
-router.get('/ready', async (req, res) => {
+export async function handleReadinessCheck(req: Request, res: Response) {
   const startTime = Date.now();
   const log = req.log || logger;
 
@@ -40,6 +40,9 @@ router.get('/ready', async (req, res) => {
       },
     });
   }
-});
+}
+
+router.get('/', handleLivenessCheck);
+router.get('/ready', handleReadinessCheck);
 
 export default router;

@@ -12,7 +12,7 @@ import postRoutes from './app/api/v1/posts/route';
 import authRoutes from './app/api/v1/auth/route';
 import commentRoutes from './app/api/v1/comments/route';
 import tagRoutes from './app/api/v1/tags/route';
-import healthRoutes from './app/api/v1/health/route';
+import healthRoutes, { handleReadinessCheck } from './app/api/v1/health/route';
 import aiRoutes from './app/api/v1/ai/route';
 
 const corsOptions: CorsOptions = {
@@ -41,11 +41,7 @@ export function createApp() {
     app.use(express.json({ limit: '100kb' }));
 
     app.use('/api/v1/health', healthRoutes);
-    app.get('/api/v1/ready', (req, res, next) => {
-        // Forward to the /ready handler in healthRoutes
-        req.url = '/ready';
-        healthRoutes(req, res, next);
-    });
+    app.get('/api/v1/ready', handleReadinessCheck);
 
     app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
     app.get('/api/v1/docs.json', (req, res) => {

@@ -28,6 +28,7 @@ model User {
   passwordHash   String
   name           String
   role           UserRole     @default(MEMBER)
+  emailVerifiedAt DateTime?
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -37,6 +38,7 @@ model User {
   posts          Post[]       @relation("PostAuthor")
   comments       Comment[]
   refreshTokens RefreshToken[]
+  authTokens    AuthToken[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -160,4 +162,24 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  token     String        @unique
+  type      AuthTokenType
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, type])
+  @@index([token])
+  @@map("auth_tokens")
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
