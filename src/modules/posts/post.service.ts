@@ -1,8 +1,10 @@
 import type { PostStatus } from '@prisma/client';
-import { postRepository } from './post.repository';
-import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../core/errors/HttpError';
+import crypto from 'crypto';
+import { postRepository, type PublicPostFilters } from './post.repository';
+import { NotFoundError, ConflictError, ForbiddenError } from '../../core/errors/HttpError';
 import type { CreatePostInput, UpdatePostInput } from './post.validation';
 import { logger } from '../../core/logger/logger';
+import { env } from '../../config/env';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -10,23 +12,28 @@ const MAX_LIMIT = 50;
 
 export class PostService {
   async createPost(input: CreatePostInput, authorId: string, organizationId: string) {
-    const slug = this.generateSlug(input.title);
-
-    const existing = await postRepository.findBySlug(organizationId, slug);
-    if (existing) {
-      throw new ConflictError(`A post with slug "${slug}" already exists in this organization`);
-    }
+    const slug = await this.generateUniqueSlug(organizationId, input.title);
 
     const post = await postRepository.create({
       title: input.title,
       slug,
       content: input.content,
       status: input.status,
+      publishedAt: input.status === 'PUBLISHED' ? new Date() : null,
       author: { connect: { id: authorId } },
       organization: { connect: { id: organizationId } },
+      ...(input.tagIds && input.tagIds.length > 0
+        ? {
+            tags: {
+              create: input.tagIds.map((tagId) => ({
+                tag: { connect: { id: tagId } },
+              })),
+            },
+          }
+        : {}),
     });
 
-    logger.info({ postId: post.id, authorId }, 'Post created successfully');
+    logger.info({ postId: post.id, authorId, slug }, 'Post created successfully');
     return post;
   }
 
@@ -56,7 +63,6 @@ export class PostService {
     const limit = this.sanitizeLimit(rawLimit);
 
     const { data, total } = await postRepository.findMany(organizationId, { page, limit }, status);
-
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -70,13 +76,48 @@ export class PostService {
     };
   }
 
+  async getPublicPosts(filters: PublicPostFilters, rawPage?: number, rawLimit?: number) {
+    const page = this.sanitizePage(rawPage);
+    const limit = this.sanitizeLimit(rawLimit);
+
+    const { data, total } = await postRepository.findPublicMany(filters, { page, limit });
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async getPublicPostBySlug(slug: string) {
+    const post = await postRepository.findPublicBySlug(slug);
+    if (!post) {
+      throw new NotFoundError('Post');
+    }
+    return post;
+  }
+
+  async getPublicSitemap() {
+    const posts = await postRepository.findPublishedSitemap();
+    return posts.map((p) => ({
+      slug: p.slug,
+      url: `${env.APP_URL}/posts/${p.slug}`,
+      publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
+      updatedAt: p.updatedAt.toISOString(),
+    }));
+  }
+
   async getPostById(postId: string, organizationId: string) {
     const post = await postRepository.findById(postId);
 
     if (!post) {
       throw new NotFoundError('Post');
     }
-
 
     if (post.organizationId !== organizationId) {
       throw new NotFoundError('Post');
@@ -97,8 +138,14 @@ export class PostService {
       throw new ForbiddenError('Only the author or an admin can update this post');
     }
 
-    const updateData: { title?: string; content?: string } = {};
-    if (input.title !== undefined) updateData.title = input.title;
+    const updateData: { title?: string; content?: string; slug?: string } = {};
+    if (input.title !== undefined) {
+      updateData.title = input.title;
+      // Slug is immutable once published. Only generate a new slug if post is still DRAFT
+      if (post.status === 'DRAFT') {
+        updateData.slug = await this.generateUniqueSlug(post.organizationId, input.title);
+      }
+    }
     if (input.content !== undefined) updateData.content = input.content;
 
     const updated = await postRepository.update(postId, updateData);
@@ -139,12 +186,19 @@ export class PostService {
     return rawLimit;
   }
 
-  private generateSlug(title: string): string {
-    return title
+  private async generateUniqueSlug(organizationId: string, title: string): Promise<string> {
+    const baseSlug = title
       .toLowerCase()
       .trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-');
+
+    const existing = await postRepository.findBySlug(organizationId, baseSlug);
+    if (!existing) {
+      return baseSlug;
+    }
+
+    return `${baseSlug}-${crypto.randomBytes(3).toString('hex')}`;
   }
 }
 
