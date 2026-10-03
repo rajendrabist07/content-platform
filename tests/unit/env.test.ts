@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { envSchema } from '../../src/config/env';
+import { envSchema } from '../../src/config/env.schema';
 
 describe('Environment Schema - Unit Tests', () => {
   const validBaseEnv = {

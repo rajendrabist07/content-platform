@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { envSchema } from '../src/config/env';
+import { envSchema } from '../src/config/env.schema';
 
 /**
  * Script to verify that all environment variables declared in envSchema
