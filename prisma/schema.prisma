@@ -29,6 +29,7 @@ model User {
   name           String
   role           UserRole     @default(MEMBER)
   emailVerifiedAt DateTime?
+  emailNotifications Boolean @default(true)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -37,8 +38,9 @@ model User {
 
   posts          Post[]       @relation("PostAuthor")
   comments       Comment[]
-  refreshTokens RefreshToken[]
-  authTokens    AuthToken[]
+  refreshTokens  RefreshToken[]
+  authTokens     AuthToken[]
+  notifications  Notification[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -182,4 +184,27 @@ model AuthToken {
 enum AuthTokenType {
   EMAIL_VERIFICATION
   PASSWORD_RESET
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  readAt    DateTime?
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_COMMENT
+  NEW_REPLY
+  POST_PUBLISHED
+  SYSTEM
 }

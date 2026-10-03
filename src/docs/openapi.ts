@@ -3,6 +3,7 @@ import { postsSchemas, postsPaths } from './features/posts.docs';
 import { commentsSchemas, commentsPaths } from './features/comments.docs';
 import { tagsSchemas, tagsPaths } from './features/tags.docs';
 import { aiSchemas, aiPaths } from './features/ai.docs';
+import { notificationsSchemas, notificationsPaths } from './features/notifications.docs';
 
 export const openApiDocument = {
     openapi: '3.1.0',
@@ -10,7 +11,7 @@ export const openApiDocument = {
         title: 'Content Platform API',
         version: '1.0.0',
         description: `
-Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags).
+Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI).
 
 **Response envelope** — every response has the shape \`{ success, data?, message?, statusCode? }\`.
 
@@ -31,10 +32,11 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
     },
     servers: [{ url: '/api/v1', description: 'Current server' }],
     tags: [
-        { name: 'Auth', description: 'Registration, login, token refresh, logout' },
+        { name: 'Auth', description: 'Registration, login, email verification, password reset, token refresh, logout' },
         { name: 'Posts', description: 'Blog post CRUD, pagination, publishing' },
         { name: 'Comments', description: 'Threaded comments on posts' },
         { name: 'Tags', description: 'Tag creation and many-to-many attachment to posts' },
+        { name: 'Notifications', description: 'In-app notification listing and read status management' },
         { name: 'AI', description: 'AI-assisted content generation and optimization' },
     ],
     components: {
@@ -70,6 +72,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
             ...postsSchemas,
             ...commentsSchemas,
             ...tagsSchemas,
+            ...notificationsSchemas,
             ...aiSchemas,
         },
     },
@@ -78,6 +81,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         ...postsPaths,
         ...commentsPaths,
         ...tagsPaths,
+        ...notificationsPaths,
         ...aiPaths,
     },
 };

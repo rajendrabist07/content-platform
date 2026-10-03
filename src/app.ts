@@ -14,6 +14,7 @@ import commentRoutes from './app/api/v1/comments/route';
 import tagRoutes from './app/api/v1/tags/route';
 import healthRoutes, { handleReadinessCheck } from './app/api/v1/health/route';
 import aiRoutes from './app/api/v1/ai/route';
+import notificationRoutes from './app/api/v1/notifications/route';
 
 const corsOptions: CorsOptions = {
     origin(origin, callback) {
@@ -55,6 +56,7 @@ export function createApp() {
     app.use('/api/v1/posts/:postId/comments', commentRoutes);
     app.use('/api/v1/tags', tagRoutes);
     app.use('/api/v1/ai', aiRoutes);
+    app.use('/api/v1/notifications', notificationRoutes);
 
     app.use(errorMiddleware);
 
