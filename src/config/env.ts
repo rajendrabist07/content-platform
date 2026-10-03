@@ -13,6 +13,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
   GEMINI_API_KEY: z.string().min(1, { message: 'GEMINI_API_KEY is required' }),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 
 
   ALLOWED_ORIGINS: z
