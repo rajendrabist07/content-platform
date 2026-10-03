@@ -12,6 +12,11 @@ router.patch('/:id/publish', authenticate, (req, res, next) => postController.pu
 router.patch('/:id', authenticate, (req, res, next) => postController.update(req, res, next));
 router.delete('/:id', authenticate, (req, res, next) => postController.delete(req, res, next));
 
+router.post('/:id/like', authenticate, (req, res, next) => postController.like(req, res, next));
+router.delete('/:id/like', authenticate, (req, res, next) => postController.unlike(req, res, next));
+router.post('/:id/bookmark', authenticate, (req, res, next) => postController.bookmark(req, res, next));
+router.delete('/:id/bookmark', authenticate, (req, res, next) => postController.unbookmark(req, res, next));
+
 router.post('/:postId/tags', authenticate, (req, res, next) => tagController.attachToPost(req, res, next));
 router.delete('/:postId/tags/:tagId', authenticate, (req, res, next) => tagController.detachFromPost(req, res, next));
 

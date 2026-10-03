@@ -141,7 +141,6 @@ export class PostService {
     const updateData: { title?: string; content?: string; slug?: string } = {};
     if (input.title !== undefined) {
       updateData.title = input.title;
-      // Slug is immutable once published. Only generate a new slug if post is still DRAFT
       if (post.status === 'DRAFT') {
         updateData.slug = await this.generateUniqueSlug(post.organizationId, input.title);
       }
@@ -167,6 +166,68 @@ export class PostService {
 
     await postRepository.softDelete(postId);
     logger.info({ postId, deletedBy: requestingUserId }, 'Post deleted');
+  }
+
+  async likePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    const post = await postRepository.findById(postId);
+    if (!post) {
+      throw new NotFoundError('Post');
+    }
+
+    const likeCount = await postRepository.addLike(postId, userId);
+    logger.info({ postId, userId, likeCount }, 'Post liked');
+    return { liked: true, likeCount };
+  }
+
+  async unlikePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    const post = await postRepository.findById(postId);
+    if (!post) {
+      throw new NotFoundError('Post');
+    }
+
+    const likeCount = await postRepository.removeLike(postId, userId);
+    logger.info({ postId, userId, likeCount }, 'Post unliked');
+    return { liked: false, likeCount };
+  }
+
+  async bookmarkPost(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
+    const post = await postRepository.findById(postId);
+    if (!post) {
+      throw new NotFoundError('Post');
+    }
+
+    await postRepository.addBookmark(postId, userId);
+    logger.info({ postId, userId }, 'Post bookmarked');
+    return { bookmarked: true };
+  }
+
+  async unbookmarkPost(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
+    const post = await postRepository.findById(postId);
+    if (!post) {
+      throw new NotFoundError('Post');
+    }
+
+    await postRepository.removeBookmark(postId, userId);
+    logger.info({ postId, userId }, 'Post unbookmarked');
+    return { bookmarked: false };
+  }
+
+  async getBookmarks(userId: string, rawPage?: number, rawLimit?: number) {
+    const page = this.sanitizePage(rawPage);
+    const limit = this.sanitizeLimit(rawLimit);
+
+    const { data, total } = await postRepository.findBookmarks(userId, { page, limit });
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
   }
 
   private sanitizePage(rawPage?: number): number {

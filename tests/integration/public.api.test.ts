@@ -73,7 +73,7 @@ describe('Public API & SEO Slugs - Integration', () => {
 
     describe('GET /api/v1/public/posts', () => {
         it('should list only PUBLISHED posts without authentication', async () => {
-            const res = await request(app).get('/api/v1/public/posts');
+            const res = await request(app).get(`/api/v1/public/posts?organizationId=${testOrgId}`);
 
             expect(res.status).toBe(200);
             expect(res.headers['cache-control']).toContain('public');
@@ -84,11 +84,11 @@ describe('Public API & SEO Slugs - Integration', () => {
         });
 
         it('should filter public posts by search keyword', async () => {
-            const matchRes = await request(app).get('/api/v1/public/posts?search=TypeScript');
+            const matchRes = await request(app).get(`/api/v1/public/posts?organizationId=${testOrgId}&search=TypeScript`);
             expect(matchRes.status).toBe(200);
             expect(matchRes.body.data.length).toBe(1);
 
-            const noMatchRes = await request(app).get('/api/v1/public/posts?search=RubyOnRails');
+            const noMatchRes = await request(app).get(`/api/v1/public/posts?organizationId=${testOrgId}&search=RubyOnRails`);
             expect(noMatchRes.status).toBe(200);
             expect(noMatchRes.body.data.length).toBe(0);
         });

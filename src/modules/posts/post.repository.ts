@@ -18,23 +18,24 @@ export interface PublicPostFilters {
   organizationId?: string | undefined;
 }
 
-const authorAndTagsInclude = {
+const defaultPostInclude = {
   author: { select: { name: true } },
   tags: { include: { tag: true } },
+  _count: { select: { likes: true } },
 } as const;
 
 export class PostRepository {
   async findById(id: string): Promise<Post | null> {
     return prisma.post.findFirst({
       where: { id, deletedAt: null },
-      include: authorAndTagsInclude,
+      include: defaultPostInclude,
     });
   }
 
   async findBySlug(organizationId: string, slug: string): Promise<Post | null> {
     return prisma.post.findFirst({
       where: { organizationId, slug, deletedAt: null },
-      include: authorAndTagsInclude,
+      include: defaultPostInclude,
     });
   }
 
@@ -58,7 +59,7 @@ export class PostRepository {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: authorAndTagsInclude,
+        include: defaultPostInclude,
       }),
       prisma.post.count({
         where,
@@ -107,7 +108,7 @@ export class PostRepository {
         orderBy: { publishedAt: 'desc' },
         skip,
         take: limit,
-        include: authorAndTagsInclude,
+        include: defaultPostInclude,
       }),
       prisma.post.count({ where }),
     ]);
@@ -118,7 +119,7 @@ export class PostRepository {
   async findPublicBySlug(slug: string): Promise<Post | null> {
     return prisma.post.findFirst({
       where: { slug, status: 'PUBLISHED', deletedAt: null },
-      include: authorAndTagsInclude,
+      include: defaultPostInclude,
     });
   }
 
@@ -137,7 +138,7 @@ export class PostRepository {
   async create(data: Prisma.PostCreateInput): Promise<Post> {
     return prisma.post.create({
       data,
-      include: authorAndTagsInclude,
+      include: defaultPostInclude,
     });
   }
 
@@ -145,7 +146,7 @@ export class PostRepository {
     return prisma.post.update({
       where: { id },
       data,
-      include: authorAndTagsInclude,
+      include: defaultPostInclude,
     });
   }
 
@@ -154,6 +155,84 @@ export class PostRepository {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  async addLike(postId: string, userId: string): Promise<number> {
+    await prisma.postLike.upsert({
+      where: {
+        postId_userId: { postId, userId },
+      },
+      create: { postId, userId },
+      update: {},
+    });
+
+    return prisma.postLike.count({ where: { postId } });
+  }
+
+  async removeLike(postId: string, userId: string): Promise<number> {
+    await prisma.postLike.deleteMany({
+      where: { postId, userId },
+    });
+
+    return prisma.postLike.count({ where: { postId } });
+  }
+
+  async isLiked(postId: string, userId: string): Promise<boolean> {
+    const like = await prisma.postLike.findUnique({
+      where: { postId_userId: { postId, userId } },
+    });
+    return like !== null;
+  }
+
+  async addBookmark(postId: string, userId: string): Promise<void> {
+    await prisma.bookmark.upsert({
+      where: {
+        postId_userId: { postId, userId },
+      },
+      create: { postId, userId },
+      update: {},
+    });
+  }
+
+  async removeBookmark(postId: string, userId: string): Promise<void> {
+    await prisma.bookmark.deleteMany({
+      where: { postId, userId },
+    });
+  }
+
+  async isBookmarked(postId: string, userId: string): Promise<boolean> {
+    const bookmark = await prisma.bookmark.findUnique({
+      where: { postId_userId: { postId, userId } },
+    });
+    return bookmark !== null;
+  }
+
+  async findBookmarks(
+    userId: string,
+    pagination: PaginationParams
+  ): Promise<PaginatedResult<Post>> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [bookmarks, total] = await Promise.all([
+      prisma.bookmark.findMany({
+        where: { userId, post: { deletedAt: null } },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          post: {
+            include: defaultPostInclude,
+          },
+        },
+      }),
+      prisma.bookmark.count({ where: { userId, post: { deletedAt: null } } }),
+    ]);
+
+    return {
+      data: bookmarks.map((b) => b.post),
+      total,
+    };
   }
 }
 

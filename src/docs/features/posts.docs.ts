@@ -13,6 +13,7 @@ export const postsSchemas = {
             publishedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
             authorName: { type: 'string', example: 'Jane Doe' },
             authorId: { type: 'string', example: 'cmucki5fs0001043rqx88trvo' },
+            likeCount: { type: 'integer', example: 7 },
             createdAt: { type: 'string', format: 'date-time', example: '2026-09-22T11:17:47.016Z' },
             tags: {
                 type: 'array',
@@ -28,7 +29,7 @@ export const postsPaths = {
             tags: ['Posts'],
             summary: 'Create a post',
             description:
-                "authorId and organizationId are derived from the access token, never from the request body — this prevents a client from claiming another user's identity. slug is auto-generated from title and must be unique within the organization (409 on collision).",
+                "authorId and organizationId are derived from the access token, never from the request body — this prevents a client from claiming another user's identity. slug is auto-generated from title and guaranteed unique within the organization.",
             security: [{ bearerAuth: [] }],
             requestBody: body(createPostSchema, {
                 title: 'My First Post',
@@ -39,18 +40,17 @@ export const postsPaths = {
                 '201': envelope({ $ref: '#/components/schemas/Post' }, 'Post created'),
                 '400': commonErrors.validation('Title must be at least 3 characters'),
                 '401': commonErrors.unauthorized(),
-                '409': commonErrors.conflict('A post with slug "my-first-post" already exists in this organization'),
             },
         },
         get: {
             tags: ['Posts'],
             summary: 'List posts (paginated)',
             description:
-                'Returns posts belonging to the caller\'s Organization only. page/limit are sanitized server-side — invalid values fall back to defaults, limit is capped at 100.',
+                'Returns posts belonging to the caller\'s Organization only. page/limit are sanitized server-side, limit is capped at 50.',
             security: [{ bearerAuth: [] }],
             parameters: [
                 { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-                { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
+                { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 50 } },
                 {
                     name: 'status',
                     in: 'query',
@@ -69,7 +69,7 @@ export const postsPaths = {
             tags: ['Posts'],
             summary: 'Get a single post by ID',
             description:
-                'Returns 404 both when the post does not exist AND when it belongs to a different organization — same status code for both, so a caller cannot distinguish "wrong org" from "doesn\'t exist" (prevents existence-leak).',
+                'Returns 404 both when the post does not exist AND when it belongs to a different organization.',
             security: [{ bearerAuth: [] }],
             parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             responses: {
@@ -81,7 +81,7 @@ export const postsPaths = {
         patch: {
             tags: ['Posts'],
             summary: 'Update a post (partial)',
-            description: 'Send only the fields to change (title and/or content). 403 if the caller is not the author or an admin/owner.',
+            description: 'Send only the fields to change. Slug remains immutable once published.',
             security: [{ bearerAuth: [] }],
             parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             requestBody: body(updatePostSchema, { title: 'Updated Title' }),
@@ -96,7 +96,7 @@ export const postsPaths = {
         delete: {
             tags: ['Posts'],
             summary: 'Delete a post (soft delete)',
-            description: 'Sets deletedAt — the row remains in the database. 403 if the caller is not the author or an admin/owner.',
+            description: 'Sets deletedAt timestamp.',
             security: [{ bearerAuth: [] }],
             parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
             responses: {
@@ -120,6 +120,54 @@ export const postsPaths = {
                 '403': commonErrors.forbidden('Only the author or an admin can publish this post'),
                 '404': commonErrors.notFound('Post'),
                 '409': commonErrors.conflict('Post is already published'),
+            },
+        },
+    },
+    '/posts/{id}/like': {
+        post: {
+            tags: ['Posts'],
+            summary: 'Like a post',
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: {
+                '200': envelope({ type: 'object', properties: { liked: { type: 'boolean' }, likeCount: { type: 'integer' } } }, 'Post liked'),
+                '401': commonErrors.unauthorized(),
+                '404': commonErrors.notFound('Post'),
+            },
+        },
+        delete: {
+            tags: ['Posts'],
+            summary: 'Unlike a post',
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: {
+                '200': envelope({ type: 'object', properties: { liked: { type: 'boolean' }, likeCount: { type: 'integer' } } }, 'Post unliked'),
+                '401': commonErrors.unauthorized(),
+                '404': commonErrors.notFound('Post'),
+            },
+        },
+    },
+    '/posts/{id}/bookmark': {
+        post: {
+            tags: ['Posts'],
+            summary: 'Bookmark a post',
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: {
+                '200': envelope({ type: 'object', properties: { bookmarked: { type: 'boolean' } } }, 'Post bookmarked'),
+                '401': commonErrors.unauthorized(),
+                '404': commonErrors.notFound('Post'),
+            },
+        },
+        delete: {
+            tags: ['Posts'],
+            summary: 'Remove bookmark from a post',
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+            responses: {
+                '200': envelope({ type: 'object', properties: { bookmarked: { type: 'boolean' } } }, 'Bookmark removed'),
+                '401': commonErrors.unauthorized(),
+                '404': commonErrors.notFound('Post'),
             },
         },
     },

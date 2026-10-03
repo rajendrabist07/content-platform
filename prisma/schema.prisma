@@ -41,6 +41,8 @@ model User {
   refreshTokens  RefreshToken[]
   authTokens     AuthToken[]
   notifications  Notification[]
+  likes          PostLike[]
+  bookmarks      Bookmark[]
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -86,6 +88,8 @@ model Post {
 
   tags           TagsOnPosts[]
   comments       Comment[]
+  likes          PostLike[]
+  bookmarks      Bookmark[]
 
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -207,4 +211,32 @@ enum NotificationType {
   NEW_REPLY
   POST_PUBLISHED
   SYSTEM
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@index([postId])
+  @@map("bookmarks")
 }

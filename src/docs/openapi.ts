@@ -5,6 +5,7 @@ import { tagsSchemas, tagsPaths } from './features/tags.docs';
 import { aiSchemas, aiPaths } from './features/ai.docs';
 import { notificationsSchemas, notificationsPaths } from './features/notifications.docs';
 import { publicSchemas, publicPaths } from './features/public.docs';
+import { usersSchemas, usersPaths } from './features/users.docs';
 
 export const openApiDocument = {
     openapi: '3.1.0',
@@ -12,7 +13,7 @@ export const openApiDocument = {
         title: 'Content Platform API',
         version: '1.0.0',
         description: `
-Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO).
+Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement).
 
 **Response envelope** — every response has the shape \`{ success, data?, message?, statusCode? }\`.
 
@@ -35,7 +36,8 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
     tags: [
         { name: 'Public', description: 'Unauthenticated public read endpoints with caching and SEO sitemaps' },
         { name: 'Auth', description: 'Registration, login, email verification, password reset, token refresh, logout' },
-        { name: 'Posts', description: 'Blog post CRUD, pagination, publishing' },
+        { name: 'Users', description: 'User profile management and bookmarks' },
+        { name: 'Posts', description: 'Blog post CRUD, pagination, publishing, likes, bookmarks' },
         { name: 'Comments', description: 'Threaded comments on posts' },
         { name: 'Tags', description: 'Tag creation and many-to-many attachment to posts' },
         { name: 'Notifications', description: 'In-app notification listing and read status management' },
@@ -71,6 +73,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
                 required: ['page', 'limit', 'total', 'totalPages'],
             },
             ...publicSchemas,
+            ...usersSchemas,
             ...authSchemas,
             ...postsSchemas,
             ...commentsSchemas,
@@ -81,6 +84,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
     },
     paths: {
         ...publicPaths,
+        ...usersPaths,
         ...authPaths,
         ...postsPaths,
         ...commentsPaths,

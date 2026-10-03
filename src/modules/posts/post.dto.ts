@@ -7,6 +7,7 @@ export interface PostResponseDTO {
   publishedAt: string | null;
   authorName: string;
   authorId: string;
+  likeCount: number;
+  tags?: { id: string; name: string }[];
   createdAt: string;
 }
-

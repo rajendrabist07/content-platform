@@ -118,6 +118,58 @@ export class PostController {
       next(err);
     }
   }
+
+  async like(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw new UnauthorizedError('Authentication required');
+      const postId = req.params.id;
+      if (typeof postId !== 'string' || !postId) throw new ValidationError('Post id is required');
+
+      const result = await postService.likePost(postId, req.user.userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async unlike(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw new UnauthorizedError('Authentication required');
+      const postId = req.params.id;
+      if (typeof postId !== 'string' || !postId) throw new ValidationError('Post id is required');
+
+      const result = await postService.unlikePost(postId, req.user.userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async bookmark(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw new UnauthorizedError('Authentication required');
+      const postId = req.params.id;
+      if (typeof postId !== 'string' || !postId) throw new ValidationError('Post id is required');
+
+      const result = await postService.bookmarkPost(postId, req.user.userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async unbookmark(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw new UnauthorizedError('Authentication required');
+      const postId = req.params.id;
+      if (typeof postId !== 'string' || !postId) throw new ValidationError('Post id is required');
+
+      const result = await postService.unbookmarkPost(postId, req.user.userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const postController = new PostController();

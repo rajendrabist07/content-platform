@@ -16,6 +16,8 @@ import healthRoutes, { handleReadinessCheck } from './app/api/v1/health/route';
 import aiRoutes from './app/api/v1/ai/route';
 import notificationRoutes from './app/api/v1/notifications/route';
 import publicRoutes from './app/api/v1/public/route';
+import userRoutes from './app/api/v1/users/route';
+import bookmarkRoutes from './app/api/v1/bookmarks/route';
 
 const corsOptions: CorsOptions = {
     origin(origin, callback) {
@@ -59,6 +61,8 @@ export function createApp() {
     app.use('/api/v1/ai', aiRoutes);
     app.use('/api/v1/notifications', notificationRoutes);
     app.use('/api/v1/public', publicRoutes);
+    app.use('/api/v1/users', userRoutes);
+    app.use('/api/v1/bookmarks', bookmarkRoutes);
 
     app.use(errorMiddleware);
 
