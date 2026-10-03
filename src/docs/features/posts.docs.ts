@@ -11,6 +11,7 @@ export const postsSchemas = {
             content: { type: 'string', example: 'This is the content of my post, at least ten characters long.' },
             status: { type: 'string', enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'], example: 'DRAFT' },
             publishedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            authorName: { type: 'string', example: 'Jane Doe' },
             authorId: { type: 'string', example: 'cmucki5fs0001043rqx88trvo' },
             createdAt: { type: 'string', format: 'date-time', example: '2026-09-22T11:17:47.016Z' },
             tags: {

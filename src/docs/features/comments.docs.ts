@@ -8,6 +8,7 @@ export const commentsSchemas = {
             id: { type: 'string', example: 'cmu2owjtd000004i2u22zbpg5' },
             content: { type: 'string', example: 'This is my comment.' },
             postId: { type: 'string', example: 'cmu2okrcx000004i6a7884gth' },
+            authorName: { type: 'string', example: 'Jane Doe' },
             authorId: { type: 'string', example: 'cmucki5fs0001043rqx88trvo' },
             parentId: { type: 'string', nullable: true, example: null },
             createdAt: { type: 'string', format: 'date-time', example: '2026-09-15T13:10:42.001Z' },

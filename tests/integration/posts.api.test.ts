@@ -65,6 +65,7 @@ describe('Posts API - Integration', () => {
 
             expect(response.status).toBe(201);
             expect(response.body.data.authorId).toBe(userAId);
+            expect(response.body.data.authorName).toBe('User A');
             expect(response.body.data.organizationId).toBeUndefined();
         });
     });

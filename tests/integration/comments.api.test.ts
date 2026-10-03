@@ -64,6 +64,7 @@ describe('Comments API - Integration', () => {
 
             expect(response.status).toBe(201);
             expect(response.body.data.parentId).toBeNull();
+            expect(response.body.data.authorName).toBe('User A');
         });
 
         it('should create a threaded reply with correct parentId', async () => {
@@ -81,6 +82,7 @@ describe('Comments API - Integration', () => {
 
             expect(reply.status).toBe(201);
             expect(reply.body.data.parentId).toBe(parentId);
+            expect(reply.body.data.authorName).toBe('User B');
         });
 
         it('should return 404 when commenting on a non-existent post', async () => {
@@ -111,7 +113,9 @@ describe('Comments API - Integration', () => {
 
             expect(response.status).toBe(200);
             expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].authorName).toBe('User A');
             expect(response.body.data[0].replies).toHaveLength(1);
+            expect(response.body.data[0].replies[0].authorName).toBe('User B');
         });
     });
 

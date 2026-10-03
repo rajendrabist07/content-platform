@@ -5,6 +5,8 @@ export interface PostResponseDTO {
   content: string;
   status: string;
   publishedAt: string | null;
+  authorName: string;
   authorId: string;
   createdAt: string;
 }
+

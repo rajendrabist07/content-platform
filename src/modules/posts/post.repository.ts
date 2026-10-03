@@ -66,13 +66,17 @@ export class PostRepository implements IPostRepository {
   }
 
   async create(data: Prisma.PostCreateInput): Promise<Post> {
-    return prisma.post.create({ data });
+    return prisma.post.create({
+      data,
+      include: authorInclude,
+    });
   }
 
   async update(id: string, data: Prisma.PostUpdateInput): Promise<Post> {
     return prisma.post.update({
       where: { id },
       data,
+      include: authorInclude,
     });
   }
 
