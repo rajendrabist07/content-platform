@@ -2,14 +2,26 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
-    name: Lint, Typecheck & Test Suite
+    name: Test Suite & Verification
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     services:
       postgres:
@@ -61,14 +73,14 @@ jobs:
       - name: Validate Prisma Schema
         run: npx prisma validate
 
-      - name: Apply Database Migrations
-        run: npx prisma migrate deploy
-
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Apply Database Migrations
+        run: npx prisma migrate deploy
 
       - name: TypeScript Typecheck
         run: npx tsc --noEmit
 
-      - name: Run Test Suites
+      - name: Run Test Suite
         run: npm test
