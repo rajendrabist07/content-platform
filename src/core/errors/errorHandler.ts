@@ -1,5 +1,6 @@
 import { AppError } from './AppError';
 import { logger } from '../logger/logger';
+import type { Logger } from 'pino';
 
 interface ErrorResponse {
   success: false;
@@ -7,9 +8,9 @@ interface ErrorResponse {
   statusCode: number;
 }
 
-export function handleError(err: unknown): ErrorResponse {
+export function handleError(err: unknown, log: Logger = logger): ErrorResponse {
   if (err instanceof AppError) {
-    logger.warn({ err: err.message, statusCode: err.statusCode }, 'Operational error occurred');
+    log.warn({ err: err.message, statusCode: err.statusCode }, 'Operational error occurred');
     return {
       success: false,
       message: err.message,
@@ -17,7 +18,7 @@ export function handleError(err: unknown): ErrorResponse {
     };
   }
 
-  logger.error({ err }, 'Unexpected error occurred');
+  log.error({ err }, 'Unexpected error occurred');
 
   return {
     success: false,

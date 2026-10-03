@@ -6,7 +6,7 @@ import { logger } from '../../core/logger/logger';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 100;
+const MAX_LIMIT = 50;
 
 export class PostService {
   async createPost(input: CreatePostInput, authorId: string, organizationId: string) {

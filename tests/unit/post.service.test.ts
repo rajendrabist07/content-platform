@@ -48,14 +48,14 @@ describe('PostService - getPosts (pagination sanitization)', () => {
         }, undefined);
     });
 
-    it('should cap limit at MAX_LIMIT (100) even if client requests more', async () => {
+    it('should cap limit at MAX_LIMIT (50) even if client requests more', async () => {
         vi.mocked(postRepository.findMany).mockResolvedValue({ data: [], total: 0 });
 
         await postService.getPosts('org-123', 1, 99999);
 
         expect(postRepository.findMany).toHaveBeenCalledWith('org-123', {
             page: 1,
-            limit: 100,
+            limit: 50,
         }, undefined);
     });
 

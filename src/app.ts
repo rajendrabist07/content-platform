@@ -4,6 +4,8 @@ import cors, { type CorsOptions } from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { errorMiddleware } from './middleware/errorMiddleware';
+import { requestIdMiddleware } from './middleware/requestId';
+import { accessLoggerMiddleware } from './middleware/accessLogger';
 import { generalLimiter } from './middleware/rateLimiter';
 import { openApiDocument } from './docs/openapi';
 import postRoutes from './app/api/v1/posts/route';
@@ -15,15 +17,14 @@ import aiRoutes from './app/api/v1/ai/route';
 
 const corsOptions: CorsOptions = {
     origin(origin, callback) {
-
         if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
             return callback(null, true);
         }
-
         return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
     maxAge: 86400,
 };
 
@@ -32,12 +33,20 @@ export function createApp() {
 
     app.set('trust proxy', 1);
 
-    app.use(helmet());
+    app.use(requestIdMiddleware);
+    app.use(accessLoggerMiddleware);
 
+    app.use(helmet());
     app.use(cors(corsOptions));
-    app.use(express.json());
+    app.use(express.json({ limit: '100kb' }));
 
     app.use('/api/v1/health', healthRoutes);
+    app.get('/api/v1/ready', (req, res, next) => {
+        // Forward to the /ready handler in healthRoutes
+        req.url = '/ready';
+        healthRoutes(req, res, next);
+    });
+
     app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
     app.get('/api/v1/docs.json', (req, res) => {
         res.json(openApiDocument);

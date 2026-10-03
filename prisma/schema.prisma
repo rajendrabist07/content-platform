@@ -92,6 +92,9 @@ model Post {
   @@unique([organizationId, slug])
   @@index([authorId])
   @@index([status, publishedAt])
+  @@index([status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([authorId, createdAt])
   @@map("posts")
 }
 
@@ -141,6 +144,8 @@ model Comment {
 
   @@index([postId])
   @@index([parentId])
+  @@index([postId, createdAt])
+  @@index([parentId, createdAt])
   @@map("comments")
 }
 
