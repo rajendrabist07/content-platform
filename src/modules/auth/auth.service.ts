@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma';
 import { ConflictError, UnauthorizedError, NotFoundError, ValidationError } from '../../core/errors/HttpError';
 import { logger } from '../../core/logger/logger';
 import { emailService } from '../email/email.service';
+import { auditService } from '../audit/audit.service';
 import type {
   RegisterInput,
   LoginInput,
@@ -15,6 +16,11 @@ import type {
 
 const SALT_ROUNDS = 10;
 
+export interface AuthContext {
+  ipAddress?: string | undefined;
+  userAgent?: string | undefined;
+}
+
 interface JwtPayload {
   userId: string;
   organizationId: string;
@@ -22,7 +28,7 @@ interface JwtPayload {
 }
 
 class AuthService {
-  async register(input: RegisterInput) {
+  async register(input: RegisterInput, context?: AuthContext) {
     const existingUser = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -85,6 +91,18 @@ class AuthService {
 
     logger.info({ userId: user.id, organizationId, role }, 'New user registered');
 
+    // Audit log
+    auditService.log({
+      action: 'AUTH_REGISTER',
+      userId: user.id,
+      organizationId,
+      resource: 'User',
+      resourceId: user.id,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      metadata: { email: user.email, role },
+    });
+
     // Create verification token and send verification email asynchronously
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -112,7 +130,7 @@ class AuthService {
     return { user, accessToken, refreshToken };
   }
 
-  async verifyEmail(token: string) {
+  async verifyEmail(token: string, context?: AuthContext) {
     const authToken = await prisma.authToken.findUnique({
       where: { token },
       include: { user: true },
@@ -141,10 +159,21 @@ class AuthService {
     ]);
 
     logger.info({ userId: user.id }, 'User email verified successfully');
+
+    auditService.log({
+      action: 'AUTH_VERIFY_EMAIL',
+      userId: user.id,
+      organizationId: user.organizationId,
+      resource: 'User',
+      resourceId: user.id,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
+
     return user;
   }
 
-  async resendVerification(email: string): Promise<void> {
+  async resendVerification(email: string, context?: AuthContext): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -176,14 +205,32 @@ class AuthService {
       },
     });
 
+    auditService.log({
+      action: 'AUTH_RESEND_VERIFICATION',
+      userId: user.id,
+      organizationId: user.organizationId,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
+
     emailService
       .sendVerificationEmail(user.email, user.name, verificationToken)
       .catch((err) => logger.error({ err, userId: user.id }, 'Failed to resend verification email'));
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string, context?: AuthContext): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { email },
+    });
+
+    // Audit log attempt
+    auditService.log({
+      action: 'AUTH_PASSWORD_RESET_REQUEST',
+      userId: user?.id,
+      organizationId: user?.organizationId,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      metadata: { email },
     });
 
     // Constant timing / anti user enumeration
@@ -218,7 +265,7 @@ class AuthService {
       .catch((err) => logger.error({ err, userId: user.id }, 'Failed to send password reset email'));
   }
 
-  async resetPassword(input: ResetPasswordInput): Promise<void> {
+  async resetPassword(input: ResetPasswordInput, context?: AuthContext): Promise<void> {
     const authToken = await prisma.authToken.findUnique({
       where: { token: input.token },
     });
@@ -251,9 +298,18 @@ class AuthService {
     ]);
 
     logger.info({ userId: authToken.userId }, 'Password reset successfully');
+
+    auditService.log({
+      action: 'AUTH_PASSWORD_RESET_SUCCESS',
+      userId: authToken.userId,
+      resource: 'User',
+      resourceId: authToken.userId,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
   }
 
-  async changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
+  async changePassword(userId: string, input: ChangePasswordInput, context?: AuthContext): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
@@ -280,24 +336,58 @@ class AuthService {
     ]);
 
     logger.info({ userId }, 'Password changed successfully');
+
+    auditService.log({
+      action: 'AUTH_PASSWORD_CHANGED',
+      userId,
+      organizationId: user.organizationId,
+      resource: 'User',
+      resourceId: userId,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
   }
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput, context?: AuthContext) {
     const user = await prisma.user.findUnique({
       where: { email: input.email },
     });
 
     if (!user) {
+      auditService.log({
+        action: 'AUTH_LOGIN_FAILURE',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+        metadata: { email: input.email, reason: 'user_not_found' },
+      });
       throw new UnauthorizedError('Invalid email or password');
     }
 
     const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
 
     if (!isPasswordValid) {
+      auditService.log({
+        action: 'AUTH_LOGIN_FAILURE',
+        userId: user.id,
+        organizationId: user.organizationId,
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+        metadata: { email: input.email, reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedError('Invalid email or password');
     }
 
     logger.info({ userId: user.id }, 'User logged in');
+
+    auditService.log({
+      action: 'AUTH_LOGIN_SUCCESS',
+      userId: user.id,
+      organizationId: user.organizationId,
+      resource: 'User',
+      resourceId: user.id,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
 
     const accessToken = this.generateAccessToken({
       userId: user.id,

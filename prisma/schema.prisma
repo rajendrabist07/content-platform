@@ -240,3 +240,21 @@ model Bookmark {
   @@index([postId])
   @@map("bookmarks")
 }
+
+model AuditLog {
+  id             String    @id @default(cuid())
+  organizationId String?
+  userId         String?
+  action         String
+  resource       String?
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

@@ -6,6 +6,7 @@ import { aiSchemas, aiPaths } from './features/ai.docs';
 import { notificationsSchemas, notificationsPaths } from './features/notifications.docs';
 import { publicSchemas, publicPaths } from './features/public.docs';
 import { usersSchemas, usersPaths } from './features/users.docs';
+import { auditSchemas, auditPaths } from './features/audit.docs';
 
 export const openApiDocument = {
     openapi: '3.1.0',
@@ -13,7 +14,7 @@ export const openApiDocument = {
         title: 'Content Platform API',
         version: '1.0.0',
         description: `
-Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement).
+Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement, Security & Audit Logs).
 
 **Response envelope** — every response has the shape \`{ success, data?, message?, statusCode? }\`.
 
@@ -42,6 +43,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         { name: 'Tags', description: 'Tag creation and many-to-many attachment to posts' },
         { name: 'Notifications', description: 'In-app notification listing and read status management' },
         { name: 'AI', description: 'AI-assisted content generation and optimization' },
+        { name: 'Audit', description: 'Security event and compliance audit logs' },
     ],
     components: {
         securitySchemes: {
@@ -80,6 +82,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
             ...tagsSchemas,
             ...notificationsSchemas,
             ...aiSchemas,
+            ...auditSchemas,
         },
     },
     paths: {
@@ -91,5 +94,6 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         ...tagsPaths,
         ...notificationsPaths,
         ...aiPaths,
+        ...auditPaths,
     },
 };

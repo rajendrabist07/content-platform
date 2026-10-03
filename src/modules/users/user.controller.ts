@@ -33,7 +33,8 @@ export class UserController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      const updatedUser = await userService.updateProfile(req.user.userId, result.data);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      const updatedUser = await userService.updateProfile(req.user.userId, result.data, context);
 
       res.status(200).json({
         success: true,

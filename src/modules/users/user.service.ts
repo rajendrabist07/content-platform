@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import { NotFoundError } from '../../core/errors/HttpError';
 import { logger } from '../../core/logger/logger';
+import { auditService } from '../audit/audit.service';
 import type { UpdateProfileInput } from './user.validation';
 
 export class UserService {
@@ -17,7 +18,11 @@ export class UserService {
     return user;
   }
 
-  async updateProfile(userId: string, input: UpdateProfileInput) {
+  async updateProfile(
+    userId: string,
+    input: UpdateProfileInput,
+    context?: { ipAddress?: string | undefined; userAgent?: string | undefined } | undefined
+  ) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true },
@@ -53,6 +58,18 @@ export class UserService {
     });
 
     logger.info({ userId }, 'User profile updated');
+
+    auditService.log({
+      action: 'USER_PROFILE_UPDATED',
+      userId,
+      organizationId: user.organizationId,
+      resource: 'User',
+      resourceId: userId,
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+      metadata: { fieldsUpdated: Object.keys({ ...userData, ...profileData }) },
+    });
+
     return updatedUser;
   }
 }

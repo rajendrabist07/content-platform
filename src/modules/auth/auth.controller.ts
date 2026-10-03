@@ -19,7 +19,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      const { user, accessToken, refreshToken } = await authService.register(result.data);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      const { user, accessToken, refreshToken } = await authService.register(result.data, context);
 
       res.status(201).json({
         success: true,
@@ -41,7 +42,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      const { user, accessToken, refreshToken } = await authService.login(result.data);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      const { user, accessToken, refreshToken } = await authService.login(result.data, context);
 
       res.status(200).json({
         success: true,
@@ -63,7 +65,8 @@ class AuthController {
         throw new ValidationError('Verification token is required');
       }
 
-      const user = await authService.verifyEmail(token);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      const user = await authService.verifyEmail(token, context);
 
       res.status(200).json({
         success: true,
@@ -84,7 +87,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      await authService.resendVerification(result.data.email);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      await authService.resendVerification(result.data.email, context);
 
       res.status(200).json({
         success: true,
@@ -102,7 +106,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      await authService.forgotPassword(result.data.email);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      await authService.forgotPassword(result.data.email, context);
 
       res.status(200).json({
         success: true,
@@ -120,7 +125,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      await authService.resetPassword(result.data);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      await authService.resetPassword(result.data, context);
 
       res.status(200).json({
         success: true,
@@ -142,7 +148,8 @@ class AuthController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
-      await authService.changePassword(req.user.userId, result.data);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      await authService.changePassword(req.user.userId, result.data, context);
 
       res.status(200).json({
         success: true,

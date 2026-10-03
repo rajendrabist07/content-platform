@@ -18,6 +18,7 @@ import notificationRoutes from './app/api/v1/notifications/route';
 import publicRoutes from './app/api/v1/public/route';
 import userRoutes from './app/api/v1/users/route';
 import bookmarkRoutes from './app/api/v1/bookmarks/route';
+import { auditRouter } from './app/api/v1/audit/route';
 
 const corsOptions: CorsOptions = {
     origin(origin, callback) {
@@ -63,6 +64,7 @@ export function createApp() {
     app.use('/api/v1/public', publicRoutes);
     app.use('/api/v1/users', userRoutes);
     app.use('/api/v1/bookmarks', bookmarkRoutes);
+    app.use('/api/v1', auditRouter);
 
     app.use(errorMiddleware);
 
