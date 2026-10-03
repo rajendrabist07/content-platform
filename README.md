@@ -1,29 +1,6 @@
-<<<<<<< HEAD
-
 # Content Platform API
 
-Production-pattern backend built with Node.js, TypeScript, Express, Prisma, and PostgreSQL.
-
-## API Documentation
-
-https://documenter.getpostman.com/view/51591916/2sBYB2qmsV
-
-## Features
-
-- JWT authentication with refresh tokens
-- Role-based access control (RBAC)
-- Posts, Comments (threaded), Tags (many-to-many)
-- Rate limiting, Helmet, CORS
-- 30 automated tests (unit + integration)
-- Docker + Docker Compose
-- CI/CD via GitHub Actions
-READMEEOF
-
-
-=======
-# Content Platform API
-
-Production-minded REST API for a multi-tenant content platform. The service provides JWT-based authentication, organization-scoped content management, posts, threaded comments, tags, health checks, and database-backed refresh-token sessions.
+Production-minded REST API for a multi-tenant content platform. The service provides JWT-based authentication, organization-scoped content management, posts, threaded comments, tags, health checks, AI content suggestions, and database-backed refresh-token sessions.
 
 ## Overview
 
