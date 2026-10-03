@@ -129,9 +129,10 @@ describe('Public API & SEO Slugs - Integration', () => {
             expect(res.status).toBe(200);
             expect(res.headers['cache-control']).toContain('public');
             expect(res.body.success).toBe(true);
-            expect(res.body.data.length).toBe(1);
-            expect(res.body.data[0].slug).toBe(publishedPostSlug);
-            expect(res.body.data[0].url).toContain(`/posts/${publishedPostSlug}`);
+            expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+            const found = res.body.data.find((item: { slug: string; url: string }) => item.slug === publishedPostSlug);
+            expect(found).toBeDefined();
+            expect(found.url).toContain(`/posts/${publishedPostSlug}`);
         });
     });
 

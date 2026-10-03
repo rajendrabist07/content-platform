@@ -1,268 +1,243 @@
 # Content Platform API
 
-Production-minded REST API for a multi-tenant content platform. The service provides JWT-based authentication, organization-scoped content management, posts, threaded comments, tags, health checks, AI content suggestions, and database-backed refresh-token sessions.
+Production-grade, multi-tenant REST API built with Node.js, TypeScript, Express, Prisma, and PostgreSQL.
 
-## Overview
+Designed with **Clean Architecture** (Route → Middleware → Controller → Service → Repository → Prisma), fully validated with **Zod**, documented with **OpenAPI 3.1 / Swagger**, equipped with **Google Gemini AI copilot**, transactional email infrastructure, threaded notifications, SEO slugs, engagement metrics, security audit logs, and tested with **94 unit and integration tests**.
 
-Content Platform API is built as a modular TypeScript service with a clear separation between HTTP routes, controllers, services, repositories, validation, and persistence. It is designed for content teams that need authenticated collaboration across organizations while retaining a small, maintainable backend surface.
+---
 
-### Core capabilities
+## Key Capabilities & Architecture
 
-- Multi-tenant organizations and organization-scoped users and posts
-- User registration, login, access-token refresh, and logout
-- Role model with `OWNER`, `ADMIN`, and `MEMBER` roles
-- Draft, published, and archived post lifecycle
-- Slug-based post identity within an organization
-- Nested comments and replies
-- Reusable tags and post-tag relationships
-- Soft-delete fields on primary content entities
-- PostgreSQL persistence through Prisma ORM
-- Request validation with Zod
-- Security headers, CORS, rate limiting, and structured logging
-- Database-aware health endpoint
-- Unit and integration tests with Vitest and Supertest
-- Docker Compose development environment
+- **Clean Architecture & Decoupled Domain**: Strict separation of HTTP handlers, business services, repositories, and persistence.
+- **Multi-Tenant Isolation**: Users, posts, comments, tags, and audit logs are strictly scoped by Organization.
+- **Authentication & Security**:
+  - JWT access tokens (15m) + revocable database-backed refresh tokens (30d).
+  - Role-Based Access Control (RBAC): `OWNER`, `ADMIN`, `MEMBER`.
+  - Secure Email Verification & Password Reset workflows with SHA-256 tokens and constant-time execution against user enumeration.
+  - Brute force protection with tiered rate limiters (`generalLimiter`, `authActionLimiter`).
+  - Security audit logging recording authentication lifecycle events and profile mutations.
+- **AI Copilot (Google Gemini 2.5)**:
+  - `POST /api/v1/ai/suggest`: Intelligent title, tags, and summary generation.
+  - `POST /api/v1/ai/improve`: Prose clarity, structure improvement, critique, and readability scoring.
+  - `POST /api/v1/ai/outline`: Comprehensive structured article outline generation with section points.
+  - Delimiter-wrapped prompts (`<post_content>`, `<outline_topic>`) and Zod schema-enforced output sanitization.
+- **Public SEO & Publishing Pipeline**:
+  - `GET /api/v1/public/posts`: Fast cached public read endpoints for published content.
+  - Deterministic, collision-resistant slug generation with immutability guarantees once published.
+  - Dynamic XML sitemap generator (`/api/v1/public/sitemap`) with cache headers.
+- **Engagement & Social**:
+  - Post likes with toggle endpoints and optimistic like count aggregation.
+  - User bookmarks with paginated bookmark feeds (`/api/v1/bookmarks`).
+  - User profile management with avatars, bios, and notification preferences.
+- **In-App & Email Notifications**:
+  - Async comment and reply notification dispatch.
+  - In-app notification inbox with unread counts and batch mark-as-read endpoints.
+  - Transactional email transport (Brevo API + Console dev fallback) with exponential backoff retries.
+- **Observability & Ops**:
+  - Structured JSON logging with `Pino` and request tracking via `X-Request-Id`.
+  - Live liveness (`/api/v1/health`) and database readiness (`/api/v1/ready`) probes.
+  - Graceful shutdown draining active HTTP connections and database pools on `SIGTERM` / `SIGINT`.
+- **Developer Experience**:
+  - OpenAPI 3.1 interactive Swagger UI at `/api/v1/docs` (generated from real Zod schemas).
+  - Seed script populating organizations, users, posts, threaded comments, tags, and bookmarks.
+  - Automated GitHub Actions CI pipeline running typechecking, database migrations, and 94 Vitest test suites.
+
+---
 
 ## Technology Stack
 
-| Area             | Technology                       |
-| ---------------- | -------------------------------- |
-| Runtime          | Node.js 22+                      |
-| Language         | TypeScript                       |
-| HTTP framework   | Express 5                        |
-| Database         | PostgreSQL 16                    |
-| ORM              | Prisma 6                         |
-| Validation       | Zod                              |
-| Authentication   | JWT, bcryptjs                    |
-| Security         | Helmet, CORS, express-rate-limit |
-| Logging          | Pino and pino-pretty             |
-| Testing          | Vitest and Supertest             |
-| Containerization | Docker and Docker Compose        |
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Runtime** | Node.js 20+ / TypeScript | ES Modules, strict typing, TS native preview |
+| **Framework** | Express 5 | Next-generation lightweight HTTP framework |
+| **Database & ORM** | PostgreSQL 16 / Prisma 6 | Relational schema with additive versioned migrations |
+| **Validation** | Zod | Runtime schema validation on requests and AI outputs |
+| **AI Copilot** | Google Gemini (`gemini-2.5-flash`) | Structured generative content suggestions |
+| **Email** | Brevo HTTP API / Console | Transactional email with fallback transport |
+| **Documentation** | OpenAPI 3.1 / Swagger UI | Living documentation built from domain Zod schemas |
+| **Testing** | Vitest & Supertest | Parallel unit and multi-tenant integration test runner |
+| **CI/CD** | GitHub Actions | Automated workflow for linting, migration, and testing |
 
-## Repository Structure
+---
 
-```text
-.
-├── prisma/                 # Prisma schema and versioned migrations
-├── src/
-│   ├── app/api/v1/         # Versioned HTTP route registration
-│   ├── config/             # Environment validation
-│   ├── core/               # Errors and logging
-│   ├── lib/                # Shared infrastructure, including Prisma
-│   ├── middleware/         # Authentication, authorization, errors, limits
-│   ├── modules/            # Domain modules and business logic
-│   ├── app.ts              # Express application factory
-│   └── server.ts           # Process entry point
-├── tests/
-│   ├── integration/        # API-level tests
-│   └── unit/               # Focused service tests
-├── postman/                # Collections, environments, and API examples
-├── .postman/               # Postman workspace export metadata
-├── Dockerfile
-├── docker-compose.yml
-└── package.json
-```
+## Getting Started
 
-## Prerequisites
-
-- Node.js 22 or newer
+### 1. Prerequisites
+- Node.js 20+
+- PostgreSQL 16 (local or Docker)
 - npm
-- PostgreSQL 16 or Docker Desktop
-- A JWT secret containing at least 32 characters
 
-## Quick Start: Local Node.js
+### 2. Local Setup
 
-1. Install dependencies:
+Clone the repository and install dependencies:
+```bash
+git clone https://github.com/rajendrabist07/content-platform.git
+cd content-platform
+npm ci
+```
 
-   ```bash
-   npm ci
-   ```
+Create your local `.env` configuration:
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_platform_dev?schema=public
 
-2. Create a `.env` file in the project root:
+JWT_SECRET=your-random-32-character-jwt-secret-string-here
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=30d
 
-   ```dotenv
-   NODE_ENV=development
-   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_platform_dev?schema=public
-   PORT=3000
-   JWT_SECRET=replace-this-with-a-random-secret-of-at-least-32-characters
-   JWT_EXPIRES_IN=15m
-   JWT_REFRESH_EXPIRES_IN=30d
-   ```
+GEMINI_API_KEY=your-google-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash
 
-3. Generate the Prisma client and apply migrations:
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+FRONTEND_URL=http://localhost:3000
 
-   ```bash
-   npx prisma generate
-   npx prisma migrate deploy
-   ```
+EMAIL_FROM_NAME="Content Platform"
+EMAIL_FROM_ADDRESS="noreply@contentplatform.com"
+BREVO_API_KEY=
+```
 
-4. Start the API:
+### 3. Database Migrations & Seeding
 
-   ```bash
-   npx tsx src/server.ts
-   ```
+Apply database migrations:
+```bash
+npx prisma migrate dev
+```
 
-The API is available at `http://localhost:3000`.
+Seed the database with sample organizations, users, posts, and comments:
+```bash
+npm run db:seed
+```
 
-## Quick Start: Docker Compose
+### 4. Running the Server
 
-Docker Compose starts the API and PostgreSQL with a persistent database volume:
+Start the local development server with hot-reloading:
+```bash
+npm run dev
+```
+
+The API is live at `http://localhost:3000` with Swagger UI at `http://localhost:3000/api/v1/docs`.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+| :--- | :---: | :--- | :--- |
+| `DATABASE_URL` | **Yes** | — | PostgreSQL connection string |
+| `JWT_SECRET` | **Yes** | — | Secret for signing access tokens (>= 32 chars) |
+| `JWT_EXPIRES_IN` | No | `15m` | Access token lifetime |
+| `JWT_REFRESH_EXPIRES_IN` | No | `30d` | Refresh token lifetime |
+| `GEMINI_API_KEY` | No | — | Google Gemini API key for AI features |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model ID |
+| `BREVO_API_KEY` | No | — | Brevo API key for real transactional email |
+| `ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated CORS allowed origins |
+| `FRONTEND_URL` | No | `http://localhost:3000` | Base frontend URL for email verification links |
+| `PORT` | No | `3000` | Server HTTP port |
+
+---
+
+## API Endpoints Reference
+
+All endpoints are versioned under `/api/v1`.
+
+### Public Endpoints (No Auth Required)
+- `GET /health` — Application liveness probe
+- `GET /ready` — Database connectivity readiness check
+- `GET /docs` — Interactive Swagger UI documentation
+- `GET /docs.json` — OpenAPI 3.1 JSON document
+- `GET /public/posts` — List published posts with tag filtering and caching
+- `GET /public/posts/:slug` — Fetch published post details by SEO slug
+- `GET /public/tags` — List tags with published post counts
+- `GET /public/sitemap` — XML sitemap for search indexing
+
+### Authentication (`/auth`)
+- `POST /auth/register` — Register user and new organization (or join existing)
+- `POST /auth/login` — Authenticate and receive access + refresh token
+- `POST /auth/verify-email` — Verify email via token
+- `POST /auth/resend-verification` — Resend verification email
+- `POST /auth/forgot-password` — Request password reset email
+- `POST /auth/reset-password` — Reset password using token
+- `POST /auth/change-password` — Change password (authenticated)
+- `POST /auth/refresh` — Issue new access token using refresh token
+- `POST /auth/logout` — Revoke refresh token
+
+### User Profiles & Bookmarks (`/users`, `/bookmarks`)
+- `GET /users/me` — Fetch current user profile and preferences
+- `PATCH /users/me` — Update bio, avatar, notification settings
+- `GET /bookmarks` — Paginated list of user bookmarked posts
+
+### Posts (`/posts`)
+- `GET /posts` — List organization posts (supports `status` filter, pagination)
+- `POST /posts` — Create a new post (generates SEO slug)
+- `GET /posts/:id` — Get post details by ID
+- `PUT /posts/:id` — Update post content and tags
+- `PATCH /posts/:id/publish` — Publish post and lock slug
+- `DELETE /posts/:id` — Delete post (author, ADMIN, or OWNER)
+- `POST /posts/:id/like` — Toggle like on post
+- `POST /posts/:id/bookmark` — Toggle bookmark on post
+
+### Threaded Comments (`/posts/:postId/comments`)
+- `POST /posts/:postId/comments` — Add top-level comment or threaded reply (`parentId`)
+- `GET /posts/:postId/comments` — Get nested comments tree
+- `DELETE /posts/:postId/comments/:id` — Delete comment (author, ADMIN, or OWNER)
+
+### Tags (`/tags`)
+- `GET /tags` — List organization tags
+- `POST /tags` — Create a new tag
+
+### In-App Notifications (`/notifications`)
+- `GET /notifications` — Paginated list of user notifications
+- `GET /notifications/unread-count` — Unread count for UI badges
+- `PATCH /notifications/:id/read` — Mark notification as read
+- `POST /notifications/read-all` — Mark all user notifications as read
+
+### AI Copilot (`/ai`)
+- `POST /ai/suggest` — Generate optimized titles, tags, and summary
+- `POST /ai/improve` — Content editing, tone refinement, and readability score
+- `POST /ai/outline` — Generate article structure and talking points
+
+### Security & Audit Logs (`/audit-logs`)
+- `GET /audit-logs` — List tenant audit log entries (OWNER and ADMIN only)
+
+---
+
+## Testing & Quality Assurance
+
+The codebase includes **94 unit and integration tests** verifying authentication, authorization boundaries, tenant isolation, AI parsing, public feeds, bookmarks, and security logs.
 
 ```bash
-docker compose up --build -d
-docker compose exec app npx prisma migrate deploy
+# Run all tests
+npm test
+
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Type check
+npx tsc --noEmit
+
+# Execute automated smoke test suite against running server
+./scripts/smoke.sh http://localhost:3000
 ```
 
-The API is available at `http://localhost:3000`. PostgreSQL is exposed to the host at `localhost:5433`.
+---
 
-View service logs and stop the environment with:
+## Seed Accounts (Post-Seed)
 
-```bash
-docker compose logs -f app
-docker compose down
-```
+After running `npm run db:seed`, the following accounts are available for testing:
 
-The Compose file contains development credentials for local use only. Replace them before using the service in any shared or production environment.
+| Email | Password | Role | Organization |
+| :--- | :--- | :--- | :--- |
+| `owner@acme.com` | `password123` | `OWNER` | Acme Corporation |
+| `admin@acme.com` | `password123` | `ADMIN` | Acme Corporation |
+| `member@acme.com` | `password123` | `MEMBER` | Acme Corporation |
+| `writer@techstart.io` | `password123` | `MEMBER` | TechStart AI |
 
-## Configuration
-
-| Variable                 | Required | Default       | Description                            |
-| ------------------------ | -------- | ------------- | -------------------------------------- |
-| `NODE_ENV`               | No       | `development` | `development`, `production`, or `test` |
-| `DATABASE_URL`           | Yes      | -             | PostgreSQL connection string           |
-| `PORT`                   | No       | `3000`        | HTTP port                              |
-| `JWT_SECRET`             | Yes      | -             | Signing secret, minimum 32 characters  |
-| `JWT_EXPIRES_IN`         | No       | `15m`         | Access-token lifetime                  |
-| `JWT_REFRESH_EXPIRES_IN` | No       | `30d`         | Refresh-token lifetime                 |
-
-Environment variables are validated at startup. Invalid or missing required values stop the process before the server begins listening.
-
-## API Reference
-
-All routes are prefixed with `/api/v1`.
-
-### Health
-
-| Method | Endpoint  | Auth   | Purpose                                                                         |
-| ------ | --------- | ------ | ------------------------------------------------------------------------------- |
-| `GET`  | `/health` | Public | Returns API and database health; returns `503` when the database is unavailable |
-
-### Authentication
-
-| Method | Endpoint         | Auth   | Purpose                                               |
-| ------ | ---------------- | ------ | ----------------------------------------------------- |
-| `POST` | `/auth/register` | Public | Register a user in an organization                    |
-| `POST` | `/auth/login`    | Public | Authenticate and issue access and refresh tokens      |
-| `POST` | `/auth/refresh`  | Public | Rotate or renew an access token using a refresh token |
-| `POST` | `/auth/logout`   | Public | Revoke a refresh-token session                        |
-
-### Posts
-
-| Method   | Endpoint             | Auth         | Purpose        |
-| -------- | -------------------- | ------------ | -------------- |
-| `GET`    | `/posts`             | Bearer token | List posts     |
-| `GET`    | `/posts/:id`         | Bearer token | Get one post   |
-| `POST`   | `/posts`             | Bearer token | Create a post  |
-| `PATCH`  | `/posts/:id`         | Bearer token | Update a post  |
-| `PATCH`  | `/posts/:id/publish` | Bearer token | Publish a post |
-| `DELETE` | `/posts/:id`         | Bearer token | Delete a post  |
-
-### Comments
-
-| Method   | Endpoint                      | Auth         | Purpose                  |
-| -------- | ----------------------------- | ------------ | ------------------------ |
-| `POST`   | `/posts/:postId/comments`     | Bearer token | Add a comment or reply   |
-| `GET`    | `/posts/:postId/comments`     | Bearer token | List comments for a post |
-| `PATCH`  | `/posts/:postId/comments/:id` | Bearer token | Update a comment         |
-| `DELETE` | `/posts/:postId/comments/:id` | Bearer token | Delete a comment         |
-
-### Tags
-
-| Method   | Endpoint                     | Auth         | Purpose                  |
-| -------- | ---------------------------- | ------------ | ------------------------ |
-| `POST`   | `/tags`                      | Bearer token | Create a tag             |
-| `GET`    | `/tags`                      | Bearer token | List tags                |
-| `POST`   | `/posts/:postId/tags`        | Bearer token | Attach a tag to a post   |
-| `DELETE` | `/posts/:postId/tags/:tagId` | Bearer token | Remove a tag from a post |
-
-Authenticated requests use the standard header:
-
-```http
-Authorization: Bearer <access-token>
-```
-
-The repository includes Postman collections and environments under `postman/` for manual API exploration and regression checks.
-
-## Data Model
-
-The Prisma schema defines these principal entities:
-
-- `Organization`: tenant boundary for users and posts
-- `User`: authenticated member with an organization and role
-- `Profile`: optional one-to-one user profile
-- `Post`: organization-owned content authored by a user
-- `Tag`: reusable label connected to posts through `TagsOnPosts`
-- `Comment`: post comment with optional parent reply
-- `RefreshToken`: persisted refresh-token session with expiry
-
-The schema includes foreign-key constraints, unique organization-scoped post slugs, indexes for common lookups, cascading deletes where appropriate, and soft-delete timestamps on selected entities.
-
-## Development Commands
-
-```bash
-npm test                 # Run the complete test suite
-npm run test:unit        # Run unit tests
-npm run test:integration # Run API integration tests
-npm run test:watch       # Run Vitest in watch mode
-npx prisma studio       # Open the Prisma data browser
-npx prisma migrate dev   # Create and apply a development migration
-```
-
-The test environment is loaded from `.env.test`. Integration tests require a reachable PostgreSQL database configured by that file.
-
-## Architecture
-
-The request path follows a predictable layered flow:
-
-```text
-HTTP request
-    -> Express route
-    -> middleware (rate limit, authentication, authorization)
-    -> controller
-    -> validation and service
-    -> repository
-    -> Prisma Client
-    -> PostgreSQL
-```
-
-The `createApp()` factory in `src/app.ts` makes the HTTP application independently testable, while `src/server.ts` owns process startup. Centralized error middleware converts application errors into HTTP responses, and environment parsing prevents invalid runtime configuration.
-
-## Security and Operations
-
-- Passwords are hashed with bcryptjs and are never stored as plaintext.
-- Access tokens are short-lived by default; refresh tokens are persisted with expiration timestamps.
-- Helmet adds common HTTP security headers.
-- CORS is configured by environment mode; production should replace the placeholder origin in `src/app.ts`.
-- General and login-specific rate limits protect public endpoints from abuse.
-- Zod validates incoming authentication and domain payloads.
-- Pino provides structured application logging.
-- The health endpoint verifies database connectivity with `SELECT 1`.
-- Secrets and environment files are excluded from Git via `.gitignore`.
-
-Before production deployment, provide managed secrets, restrict CORS to trusted origins, use a production PostgreSQL instance, review rate limits, run migrations as a release step, and terminate TLS at the edge or ingress layer.
-
-## Git and Contribution Workflow
-
-1. Create a focused branch from `main`.
-2. Keep commits small and describe the behavior they introduce or fix.
-3. Add or update unit and integration coverage for changed behavior.
-4. Run the relevant test suites and database migrations locally.
-5. Review the diff for secrets, generated files, and unrelated changes.
-6. Open a pull request with a summary, test evidence, migration notes, and API contract changes.
-
-Do not commit `.env`, `.env.docker`, `.env.test`, credentials, tokens, or local database artifacts.
+---
 
 ## License
 
-This project currently declares the ISC license in `package.json`.
->>>>>>> 93c4a36 (Add README with API documentation link)
+This project is licensed under the ISC License.

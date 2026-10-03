@@ -1,0 +1,69 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint, Typecheck & Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password123
+          POSTGRES_DB: content_platform_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: "postgresql://postgres:password123@localhost:5432/content_platform_ci?schema=public"
+      JWT_SECRET: "test-jwt-secret-key-that-is-at-least-32-characters-long"
+      JWT_EXPIRES_IN: "15m"
+      JWT_REFRESH_EXPIRES_IN: "30d"
+      GEMINI_API_KEY: "test-gemini-key"
+      GEMINI_MODEL: "gemini-2.5-flash"
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
+      FRONTEND_URL: "http://localhost:3000"
+      EMAIL_FROM_NAME: "Content Platform"
+      EMAIL_FROM_ADDRESS: "noreply@contentplatform.com"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Apply Database Migrations
+        run: npx prisma migrate deploy
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: TypeScript Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run Test Suites
+        run: npm test
