@@ -35,23 +35,28 @@ jobs:
       JWT_REFRESH_EXPIRES_IN: "30d"
       GEMINI_API_KEY: "test-gemini-key"
       GEMINI_MODEL: "gemini-2.5-flash"
-      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
-      FRONTEND_URL: "http://localhost:3000"
-      EMAIL_FROM_NAME: "Content Platform"
+      EMAIL_PROVIDER: "console"
       EMAIL_FROM_ADDRESS: "noreply@contentplatform.com"
+      EMAIL_FROM_NAME: "Content Platform"
+      APP_URL: "http://localhost:3000"
+      REQUIRE_VERIFIED_EMAIL: "false"
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
+
+      - name: Check Environment Consistency
+        run: npm run check:env
 
       - name: Validate Prisma Schema
         run: npx prisma validate

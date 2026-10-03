@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "check:env": "tsx scripts/check-env.ts",
     "db:seed": "prisma db seed",
     "postinstall": "prisma skills sync || exit 0"
   },
