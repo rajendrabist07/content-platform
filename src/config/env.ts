@@ -15,6 +15,16 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().min(1, { message: 'GEMINI_API_KEY is required' }),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 
+  EMAIL_PROVIDER: z.enum(['brevo', 'console']).default('console'),
+  BREVO_API_KEY: z.string().optional(),
+  EMAIL_FROM_ADDRESS: z.string().email().default('noreply@contentplatform.com'),
+  EMAIL_FROM_NAME: z.string().default('Content Platform'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
+  REQUIRE_VERIFIED_EMAIL: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
 
   ALLOWED_ORIGINS: z
     .string()
