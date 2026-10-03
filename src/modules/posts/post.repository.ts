@@ -1,4 +1,4 @@
-import type { Post, Prisma } from '@prisma/client';
+import type { Post, Prisma, PostStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 
 export interface PaginationParams {
@@ -14,7 +14,11 @@ export interface PaginatedResult<T> {
 export interface IPostRepository {
   findById(id: string): Promise<Post | null>;
   findBySlug(organizationId: string, slug: string): Promise<Post | null>;
-  findMany(organizationId: string, pagination: PaginationParams): Promise<PaginatedResult<Post>>;
+  findMany(
+    organizationId: string,
+    pagination: PaginationParams,
+    status?: PostStatus
+  ): Promise<PaginatedResult<Post>>;
   create(data: Prisma.PostCreateInput): Promise<Post>;
   update(id: string, data: Prisma.PostUpdateInput): Promise<Post>;
   softDelete(id: string): Promise<Post>;
@@ -44,21 +48,28 @@ export class PostRepository implements IPostRepository {
 
   async findMany(
     organizationId: string,
-    pagination: PaginationParams
+    pagination: PaginationParams,
+    status?: PostStatus
   ): Promise<PaginatedResult<Post>> {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
+    const where: Prisma.PostWhereInput = {
+      organizationId,
+      deletedAt: null,
+      ...(status ? { status } : {}),
+    };
+
     const [data, total] = await prisma.$transaction([
       prisma.post.findMany({
-        where: { organizationId, deletedAt: null },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
         include: authorInclude,
       }),
       prisma.post.count({
-        where: { organizationId, deletedAt: null },
+        where,
       }),
     ]);
 

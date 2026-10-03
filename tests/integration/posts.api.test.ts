@@ -122,4 +122,40 @@ describe('Posts API - Integration', () => {
             expect(response.body.pagination.totalPages).toBe(2);
         });
     });
+
+    describe('GET /api/v1/posts - status filtering', () => {
+        it('should filter posts by status query param', async () => {
+            const draftPost = await request(app)
+                .post('/api/v1/posts')
+                .set('Authorization', `Bearer ${userAToken}`)
+                .send({ title: 'Draft Post Sample', content: 'This is a draft post.', status: 'DRAFT' });
+
+            const publishedPost = await request(app)
+                .post('/api/v1/posts')
+                .set('Authorization', `Bearer ${userAToken}`)
+                .send({ title: 'Published Post Sample', content: 'This is a published post.', status: 'DRAFT' });
+
+            await request(app)
+                .patch(`/api/v1/posts/${publishedPost.body.data.id}/publish`)
+                .set('Authorization', `Bearer ${userAToken}`);
+
+            const response = await request(app)
+                .get('/api/v1/posts?status=PUBLISHED')
+                .set('Authorization', `Bearer ${userAToken}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].id).toBe(publishedPost.body.data.id);
+            expect(response.body.data[0].status).toBe('PUBLISHED');
+        });
+
+        it('should return 400 when invalid status is provided', async () => {
+            const response = await request(app)
+                .get('/api/v1/posts?status=INVALID_STATUS')
+                .set('Authorization', `Bearer ${userAToken}`);
+
+            expect(response.status).toBe(400);
+            expect(response.body.message).toContain('Status must be one of');
+        });
+    });
 });

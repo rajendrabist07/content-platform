@@ -1,3 +1,4 @@
+import type { PostStatus } from '@prisma/client';
 import { postRepository } from './post.repository';
 import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../core/errors/HttpError';
 import type { CreatePostInput, UpdatePostInput } from './post.validation';
@@ -50,11 +51,11 @@ export class PostService {
     return updated;
   }
 
-  async getPosts(organizationId: string, rawPage?: number, rawLimit?: number) {
+  async getPosts(organizationId: string, rawPage?: number, rawLimit?: number, status?: PostStatus) {
     const page = this.sanitizePage(rawPage);
     const limit = this.sanitizeLimit(rawLimit);
 
-    const { data, total } = await postRepository.findMany(organizationId, { page, limit });
+    const { data, total } = await postRepository.findMany(organizationId, { page, limit }, status);
 
     const totalPages = Math.ceil(total / limit);
 

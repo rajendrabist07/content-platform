@@ -51,6 +51,12 @@ export const postsPaths = {
             parameters: [
                 { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
                 { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
+                {
+                    name: 'status',
+                    in: 'query',
+                    schema: { type: 'string', enum: ['DRAFT', 'PUBLISHED', 'ARCHIVED'] },
+                    description: 'Filter posts by publication status (optional)',
+                },
             ],
             responses: {
                 '200': paginatedEnvelope({ $ref: '#/components/schemas/Post' }, 'Paginated list of posts'),

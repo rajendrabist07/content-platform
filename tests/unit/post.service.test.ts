@@ -34,7 +34,7 @@ describe('PostService - getPosts (pagination sanitization)', () => {
         expect(postRepository.findMany).toHaveBeenCalledWith('org-123', {
             page: 1,
             limit: 10,
-        });
+        }, undefined);
     });
 
     it('should reject negative page numbers and default to 1', async () => {
@@ -45,7 +45,7 @@ describe('PostService - getPosts (pagination sanitization)', () => {
         expect(postRepository.findMany).toHaveBeenCalledWith('org-123', {
             page: 1,
             limit: 10,
-        });
+        }, undefined);
     });
 
     it('should cap limit at MAX_LIMIT (100) even if client requests more', async () => {
@@ -56,7 +56,18 @@ describe('PostService - getPosts (pagination sanitization)', () => {
         expect(postRepository.findMany).toHaveBeenCalledWith('org-123', {
             page: 1,
             limit: 100,
-        });
+        }, undefined);
+    });
+
+    it('should pass status filter to repository', async () => {
+        vi.mocked(postRepository.findMany).mockResolvedValue({ data: [], total: 0 });
+
+        await postService.getPosts('org-123', 1, 10, 'PUBLISHED');
+
+        expect(postRepository.findMany).toHaveBeenCalledWith('org-123', {
+            page: 1,
+            limit: 10,
+        }, 'PUBLISHED');
     });
 
     it('should calculate totalPages correctly', async () => {

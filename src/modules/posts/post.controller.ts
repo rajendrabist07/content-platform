@@ -1,3 +1,4 @@
+import type { PostStatus } from '@prisma/client';
 import type { Request, Response, NextFunction } from 'express';
 import { postService } from './post.service';
 import { createPostSchema, updatePostSchema } from './post.validation';
@@ -49,8 +50,17 @@ export class PostController {
 
       const page = req.query.page ? Number(req.query.page) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      let status: PostStatus | undefined = undefined;
 
-      const result = await postService.getPosts(req.user.organizationId, page, limit);
+      if (req.query.status !== undefined) {
+        const rawStatus = req.query.status;
+        if (rawStatus !== 'DRAFT' && rawStatus !== 'PUBLISHED' && rawStatus !== 'ARCHIVED') {
+          throw new ValidationError('Status must be one of DRAFT, PUBLISHED, or ARCHIVED');
+        }
+        status = rawStatus as PostStatus;
+      }
+
+      const result = await postService.getPosts(req.user.organizationId, page, limit, status);
 
       res.json({
         success: true,
