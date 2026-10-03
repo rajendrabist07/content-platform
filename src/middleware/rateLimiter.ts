@@ -26,3 +26,15 @@ export const loginLimiter = rateLimit({
     legacyHeaders: false,
     skipSuccessfulRequests: true,
 });
+
+export const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: {
+        success: false,
+        message: 'Too many AI requests, please try again after 15 minutes',
+        statusCode: 429,
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});

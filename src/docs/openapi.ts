@@ -2,6 +2,7 @@ import { authSchemas, authPaths } from './features/auth.docs';
 import { postsSchemas, postsPaths } from './features/posts.docs';
 import { commentsSchemas, commentsPaths } from './features/comments.docs';
 import { tagsSchemas, tagsPaths } from './features/tags.docs';
+import { aiSchemas, aiPaths } from './features/ai.docs';
 
 export const openApiDocument = {
     openapi: '3.1.0',
@@ -16,7 +17,8 @@ Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tag
 **Errors** — \`success: false\` with a human-readable \`message\` and matching HTTP status code:
 400 (validation), 401 (authentication), 403 (authorization — ownership/role), 404 (not found,
 including cross-organization access to avoid leaking existence), 409 (conflict/duplicate),
-429 (rate limited), 500 (unexpected — generic message only, details are server-side logged).
+429 (rate limited), 500 (unexpected — generic message only, details are server-side logged),
+503 (service unavailable — upstream AI failure).
 
 **Authentication** — \`POST /auth/register\` and \`POST /auth/login\` return an \`accessToken\`
 (15 min) and a \`refreshToken\` (30 days, DB-backed and revocable via \`POST /auth/logout\`).
@@ -33,6 +35,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         { name: 'Posts', description: 'Blog post CRUD, pagination, publishing' },
         { name: 'Comments', description: 'Threaded comments on posts' },
         { name: 'Tags', description: 'Tag creation and many-to-many attachment to posts' },
+        { name: 'AI', description: 'AI-assisted content generation and optimization' },
     ],
     components: {
         securitySchemes: {
@@ -67,6 +70,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
             ...postsSchemas,
             ...commentsSchemas,
             ...tagsSchemas,
+            ...aiSchemas,
         },
     },
     paths: {
@@ -74,5 +78,6 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         ...postsPaths,
         ...commentsPaths,
         ...tagsPaths,
+        ...aiPaths,
     },
 };
