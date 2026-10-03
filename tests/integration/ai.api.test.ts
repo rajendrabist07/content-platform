@@ -104,4 +104,87 @@ describe('AI API - Integration', () => {
             generateSpy.mockRestore();
         });
     });
+
+    describe('POST /api/v1/ai/improve', () => {
+        it('should reject unauthenticated request', async () => {
+            const response = await request(app)
+                .post('/api/v1/ai/improve')
+                .send({ content: 'Some valid content with sufficient length to pass body validation.' });
+
+            expect(response.status).toBe(401);
+            expect(response.body.success).toBe(false);
+        });
+
+        it('should return improved content when authenticated', async () => {
+            const mockImprovement = {
+                improvedContent: '# Scalable Node.js Architecture\n\nClean architecture is great.',
+                critique: 'Added structured headings and improved prose clarity.',
+                changes: ['Fixed grammar', 'Added headings'],
+                readabilityScore: 85,
+                readingTimeMinutes: 2,
+            };
+
+            const improveSpy = vi
+                .spyOn(aiService, 'improveContent')
+                .mockResolvedValueOnce(mockImprovement);
+
+            const response = await request(app)
+                .post('/api/v1/ai/improve')
+                .set('Authorization', `Bearer ${userToken}`)
+                .send({
+                    content: 'Clean architecture decouples software elements from external dependencies.',
+                    tone: 'technical',
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data).toEqual(mockImprovement);
+
+            improveSpy.mockRestore();
+        });
+    });
+
+    describe('POST /api/v1/ai/outline', () => {
+        it('should reject unauthenticated request', async () => {
+            const response = await request(app)
+                .post('/api/v1/ai/outline')
+                .send({ topic: 'Database Indexing in PostgreSQL' });
+
+            expect(response.status).toBe(401);
+            expect(response.body.success).toBe(false);
+        });
+
+        it('should return generated outline when authenticated', async () => {
+            const mockOutline = {
+                title: 'Mastering PostgreSQL Indexes',
+                targetAudience: 'Backend Engineers',
+                estimatedTotalWords: 1500,
+                sections: [
+                    { heading: 'Introduction', keyPoints: ['Why indexes matter', 'B-Tree vs Hash'], estimatedWordCount: 300 },
+                    { heading: 'Performance Tuning', keyPoints: ['EXPLAIN ANALYZE', 'Partial indexes'], estimatedWordCount: 600 },
+                ],
+            };
+
+            const outlineSpy = vi
+                .spyOn(aiService, 'generateOutline')
+                .mockResolvedValueOnce(mockOutline);
+
+            const response = await request(app)
+                .post('/api/v1/ai/outline')
+                .set('Authorization', `Bearer ${userToken}`)
+                .send({
+                    topic: 'Database Indexing in PostgreSQL',
+                    targetAudience: 'Backend Engineers',
+                    depth: 'in-depth',
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data).toEqual(mockOutline);
+
+            outlineSpy.mockRestore();
+        });
+
+    });
 });
+
