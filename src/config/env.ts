@@ -12,7 +12,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
-  ANTHROPIC_API_KEY: z.string().min(1, { message: 'ANTHROPIC_API_KEY is required' }),
+  GEMINI_API_KEY: z.string().min(1, { message: 'GEMINI_API_KEY is required' }),
 
 
   ALLOWED_ORIGINS: z

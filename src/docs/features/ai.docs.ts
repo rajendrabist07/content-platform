@@ -26,7 +26,7 @@ export const aiPaths = {
             tags: ['AI'],
             summary: 'Generate post suggestions (title, tags, summary)',
             description:
-                'Stateless helper endpoint powered by Anthropic Claude Messages API. Analyzes post content (minimum 20 characters) and generates a structured title, tags, and summary. Authenticated and rate-limited to 10 requests per 15 minutes.',
+                'Stateless helper endpoint powered by Google Gemini API. Analyzes post content (minimum 20 characters) and generates a structured title, tags, and summary. Authenticated and rate-limited to 10 requests per 15 minutes.',
             security: [{ bearerAuth: [] }],
             requestBody: body(suggestContentSchema, {
                 content: 'Clean architecture helps create scalable and maintainable applications by decoupling core business logic from frameworks and external services.',

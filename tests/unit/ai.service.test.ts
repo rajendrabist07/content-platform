@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { aiService } from '../../src/modules/ai/ai.service';
 import { ServiceUnavailableError } from '../../src/core/errors/HttpError';
 
-describe('AiService - generateSuggestions', () => {
+describe('AiService - generateSuggestions (Gemini)', () => {
     const originalFetch = global.fetch;
 
     beforeEach(() => {
@@ -13,16 +13,21 @@ describe('AiService - generateSuggestions', () => {
         global.fetch = originalFetch;
     });
 
-    it('should successfully parse and return AI suggestions', async () => {
+    it('should successfully parse and return AI suggestions from Gemini response', async () => {
         const mockResponseData = {
-            content: [
+            candidates: [
                 {
-                    type: 'text',
-                    text: JSON.stringify({
-                        title: 'Mastering TypeScript Clean Architecture',
-                        tags: ['TypeScript', 'Backend', 'Architecture'],
-                        summary: 'A deep dive into clean architecture with TypeScript and Express.',
-                    }),
+                    content: {
+                        parts: [
+                            {
+                                text: JSON.stringify({
+                                    title: 'Mastering TypeScript Clean Architecture',
+                                    tags: ['TypeScript', 'Backend', 'Architecture'],
+                                    summary: 'A deep dive into clean architecture with TypeScript and Express.',
+                                }),
+                            },
+                        ],
+                    },
                 },
             ],
         };
@@ -47,10 +52,15 @@ describe('AiService - generateSuggestions', () => {
 
     it('should handle markdown fenced JSON returned by LLM', async () => {
         const mockResponseData = {
-            content: [
+            candidates: [
                 {
-                    type: 'text',
-                    text: '```json\n{\n  "title": "Fenced Title",\n  "tags": ["tag1", "tag2"],\n  "summary": "Fenced summary."\n}\n```',
+                    content: {
+                        parts: [
+                            {
+                                text: '```json\n{\n  "title": "Fenced Title",\n  "tags": ["tag1", "tag2"],\n  "summary": "Fenced summary."\n}\n```',
+                            },
+                        ],
+                    },
                 },
             ],
         };
@@ -72,7 +82,7 @@ describe('AiService - generateSuggestions', () => {
         });
     });
 
-    it('should throw ServiceUnavailableError when Anthropic API returns non-200', async () => {
+    it('should throw ServiceUnavailableError when Gemini API returns non-200', async () => {
         global.fetch = vi.fn().mockResolvedValue({
             ok: false,
             status: 500,
@@ -88,10 +98,15 @@ describe('AiService - generateSuggestions', () => {
 
     it('should throw ServiceUnavailableError when LLM returns non-JSON or malformed schema', async () => {
         const mockResponseData = {
-            content: [
+            candidates: [
                 {
-                    type: 'text',
-                    text: 'Sorry, I cannot help with that.',
+                    content: {
+                        parts: [
+                            {
+                                text: 'Sorry, I cannot help with that.',
+                            },
+                        ],
+                    },
                 },
             ],
         };

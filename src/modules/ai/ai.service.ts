@@ -7,7 +7,7 @@ import type { SuggestContentInput } from './ai.validation';
 export class AiService {
   async generateSuggestions(input: SuggestContentInput): Promise<AiSuggestionResponseDTO> {
     try {
-      const systemPrompt = `You are an AI assistant for a publishing and content platform.
+      const systemInstruction = `You are an AI assistant for a publishing and content platform.
 Given user-provided content, generate:
 1. A concise, compelling title (under 70 characters).
 2. 3 to 5 relevant tags (lowercase, single words or short phrases).
@@ -22,39 +22,45 @@ You must respond ONLY with a raw, valid JSON object matching this exact shape:
 
 Do not include any markdown formatting (no \`\`\` or \`\`\`json), no explanations, and no surrounding text.`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+
+      const response = await fetch(geminiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages: [
+          systemInstruction: {
+            parts: [{ text: systemInstruction }],
+          },
+          contents: [
             {
-              role: 'user',
-              content: input.content,
+              parts: [{ text: input.content }],
             },
           ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+          },
         }),
       });
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => 'Unable to read error body');
-        logger.error({ status: response.status, errorBody }, 'Anthropic API returned error response');
+        logger.error({ status: response.status, errorBody }, 'Gemini API returned error response');
         throw new ServiceUnavailableError('AI suggestion service is temporarily unavailable');
       }
 
       const rawJson = (await response.json()) as {
-        content?: Array<{ type: string; text: string }>;
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
       };
 
-      const text = rawJson?.content?.[0]?.text?.trim();
+      const text = rawJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!text) {
-        logger.error({ rawJson }, 'Anthropic API response contained no text');
+        logger.error({ rawJson }, 'Gemini API response contained no text candidate');
         throw new ServiceUnavailableError('AI suggestion service is temporarily unavailable');
       }
 
