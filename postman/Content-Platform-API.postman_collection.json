@@ -11,7 +11,8 @@
     { "key": "userId", "value": "", "type": "string" },
     { "key": "organizationId", "value": "", "type": "string" },
     { "key": "postId", "value": "", "type": "string" },
-    { "key": "commentId", "value": "", "type": "string" }
+    { "key": "commentId", "value": "", "type": "string" },
+    { "key": "tagId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -163,12 +164,13 @@
             "header": [],
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
             "url": {
-              "raw": "{{baseUrl}}/posts?page=1&limit=10",
+              "raw": "{{baseUrl}}/posts?page=1&limit=10&status=PUBLISHED",
               "host": ["{{baseUrl}}"],
               "path": ["posts"],
               "query": [
                 { "key": "page", "value": "1" },
-                { "key": "limit", "value": "10" }
+                { "key": "limit", "value": "10" },
+                { "key": "status", "value": "PUBLISHED", "description": "Optional filter: DRAFT, PUBLISHED, or ARCHIVED" }
               ]
             },
             "description": "Returns Posts belonging to the caller's Organization only. `page`/`limit` are sanitized server-side (invalid values fall back to defaults, `limit` is capped at 100). Response includes `pagination: { page, limit, total, totalPages }`."
@@ -300,6 +302,93 @@
               "path": ["posts", "{{postId}}", "comments", "{{commentId}}"]
             },
             "description": "Soft delete. Returns 204 No Content. 403 if the caller isn't the comment's author."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tags",
+      "item": [
+        {
+          "name": "Create Tag",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TypeScript\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/tags", "host": ["{{baseUrl}}"], "path": ["tags"] },
+            "description": "Creates a tag. Names are normalized to lowercase before saving. 409 if a tag with this name already exists."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('tagId', body.data.id);",
+                  "  console.log('Captured tagId into environment: ' + body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+            "url": { "raw": "{{baseUrl}}/tags", "host": ["{{baseUrl}}"], "path": ["tags"] },
+            "description": "Returns all tags in the system."
+          }
+        },
+        {
+          "name": "Attach Tags to Post",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tagIds\": [\"{{tagId}}\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/posts/{{postId}}/tags", "host": ["{{baseUrl}}"], "path": ["posts", "{{postId}}", "tags"] },
+            "description": "Attaches one or more tags to a post."
+          }
+        },
+        {
+          "name": "Detach Tag from Post",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+            "url": { "raw": "{{baseUrl}}/posts/{{postId}}/tags/{{tagId}}", "host": ["{{baseUrl}}"], "path": ["posts", "{{postId}}", "tags", "{{tagId}}"] },
+            "description": "Detaches a specific tag from a post."
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Generate Content Suggestions",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Clean architecture decouples core business logic from frameworks and external services to create maintainable, testable codebases.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/ai/suggest", "host": ["{{baseUrl}}"], "path": ["ai", "suggest"] },
+            "description": "Stateless helper endpoint powered by Anthropic Messages API. Analyzes post content (minimum 20 characters) and generates structured suggestions for title, tags, and summary. Authenticated and rate-limited."
           }
         }
       ]

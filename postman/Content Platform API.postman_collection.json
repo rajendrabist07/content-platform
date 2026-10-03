@@ -257,7 +257,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/posts?page=1&limit=10",
+              "raw": "{{baseUrl}}/posts?page=1&limit=10&status=PUBLISHED",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -272,6 +272,11 @@
                 {
                   "key": "limit",
                   "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "PUBLISHED",
+                  "description": "Optional filter: DRAFT, PUBLISHED, or ARCHIVED"
                 }
               ]
             },
@@ -566,6 +571,204 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Tags",
+      "item": [
+        {
+          "name": "Create Tag",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.environment.set('tagId', body.data.id);",
+                  "  console.log('Captured tagId into environment: ' + body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TypeScript\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tags"
+              ]
+            },
+            "description": "Creates a tag. Names are normalized to lowercase before saving. 409 if a tag with this name already exists."
+          },
+          "response": []
+        },
+        {
+          "name": "List Tags",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tags"
+              ]
+            },
+            "description": "Returns all tags in the system."
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Tags to Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tagIds\": [\"{{tagId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/tags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "tags"
+              ]
+            },
+            "description": "Attaches one or more tags to a post."
+          },
+          "response": []
+        },
+        {
+          "name": "Detach Tag from Post",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}/tags/{{tagId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}",
+                "tags",
+                "{{tagId}}"
+              ]
+            },
+            "description": "Detaches a specific tag from a post."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Generate Content Suggestions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Clean architecture decouples core business logic from frameworks and external services to create maintainable, testable codebases.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/suggest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "suggest"
+              ]
+            },
+            "description": "Stateless helper endpoint powered by Anthropic Messages API. Analyzes post content (minimum 20 characters) and generates structured suggestions for title, tags, and summary. Authenticated and rate-limited."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -595,6 +798,10 @@
     },
     {
       "key": "commentId",
+      "value": ""
+    },
+    {
+      "key": "tagId",
       "value": ""
     }
   ]
