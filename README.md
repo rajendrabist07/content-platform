@@ -202,9 +202,44 @@ All endpoints are versioned under `/api/v1`.
 
 ---
 
+## Database Migrations & Production Deployments
+
+This project follows an **additive-only, zero-downtime** migration strategy. Full documentation is available in [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
+
+### Local Migration Development
+```bash
+# Generate a new migration from schema changes
+npx prisma migrate dev --name <migration_name>
+
+# Apply pending migrations locally
+npx prisma migrate deploy
+
+# Validate schema synchronization & drift
+npm run check:env
+npx prisma validate
+npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+```
+
+### Production Hosting on Render
+- **Build Command**: `npm ci && npx prisma generate && npm run build`
+- **Start Command**: `npm run start:prod` (applies pending migrations automatically via `prisma migrate deploy` before launching Express)
+
+---
+
+## Troubleshooting Common Issues
+
+| Error | Cause | Resolution |
+| :--- | :--- | :--- |
+| `P2021: Table does not exist` | Code deployed before migrations were applied to the database. | Ensure Render Start Command is set to `npm run start:prod`, or run `npx prisma migrate deploy` manually. |
+| `P2022: Column does not exist` | Schema column missing in the target database. | Run `npx prisma migrate deploy`. |
+| `503 Service Unavailable on /api/v1/ready` | Database disconnected or incomplete migration. | Inspect `/api/v1/ready` output for `failedMigration` details and check database connectivity. |
+| `429 Too Many Requests` | Rate limit threshold reached on auth routes. | Wait for the rate limit window to expire or configure higher thresholds in development. |
+
+---
+
 ## Testing & Quality Assurance
 
-The codebase includes **94 unit and integration tests** verifying authentication, authorization boundaries, tenant isolation, AI parsing, public feeds, bookmarks, and security logs.
+The codebase includes **105 unit and integration tests** verifying authentication, authorization boundaries, tenant isolation, AI parsing, public feeds, bookmarks, security logs, migration readiness, and environment drift guards.
 
 ```bash
 # Run all tests

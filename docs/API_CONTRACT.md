@@ -74,6 +74,8 @@ Error responses always format as:
 
 | Method | Path | Summary | Auth | Request Body / Query | Success Response |
 | :--- | :--- | :--- | :---: | :--- | :--- |
+| `GET` | `/api/v1/health` | Liveness probe | 🌐 Public | None | 200/201 Envelope |
+| `GET` | `/api/v1/ready` | Readiness probe | 🌐 Public | None | 200/201 Envelope |
 | `GET` | `/api/v1/public/posts` | List published posts publicly (SEO / Unauthenticated) | 🌐 Public | page (query), limit (query), tag (query), search (query), authorId (query), organizationId (query) | 200/201 Envelope |
 | `GET` | `/api/v1/public/posts/{slug}` | Get published post by slug | 🌐 Public | slug (path) | 200/201 Envelope |
 | `GET` | `/api/v1/public/tags` | List all tags with published post counts | 🌐 Public | None | 200/201 Envelope |

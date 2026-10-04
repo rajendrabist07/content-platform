@@ -45,6 +45,27 @@ check_status() {
 check_status "/api/v1/health" 200
 check_status "/api/v1/ready" 200
 
+# Validate readiness migration state
+READY_RES=$(curl -s "$BASE_URL/api/v1/ready" -H "Content-Type: application/json")
+LATEST_MIGRATION=$(echo "$READY_RES" | grep -o '"latestMigration":"[^"]*' | cut -d'"' -f4 || true)
+
+if [ -z "$LATEST_MIGRATION" ] || [ "$LATEST_MIGRATION" = "none" ]; then
+  echo "❌ [/api/v1/ready did not report an active latestMigration]"
+  echo "Response: $READY_RES"
+  exit 1
+fi
+echo "Verified DB Latest Migration: $LATEST_MIGRATION"
+
+if [ -d "prisma/migrations" ]; then
+  EXPECTED_LATEST=$(ls -1d prisma/migrations/*/ 2>/dev/null | sort | tail -n 1 | xargs -n 1 basename)
+  if [ -n "$EXPECTED_LATEST" ] && [ "$LATEST_MIGRATION" != "$EXPECTED_LATEST" ]; then
+    echo "❌ [Migration Mismatch: Expected $EXPECTED_LATEST on disk, but /ready reports $LATEST_MIGRATION]"
+    exit 1
+  else
+    echo "✅ [Database migration is fully synced with codebase ($EXPECTED_LATEST)]"
+  fi
+fi
+
 # 2. Public Read Endpoints & Docs
 check_status "/api/v1/public/posts" 200
 check_status "/api/v1/public/tags" 200

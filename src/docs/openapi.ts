@@ -8,6 +8,8 @@ import { publicSchemas, publicPaths } from './features/public.docs';
 import { usersSchemas, usersPaths } from './features/users.docs';
 import { auditSchemas, auditPaths } from './features/audit.docs';
 
+import { healthSchemas, healthPaths } from './features/health.docs';
+
 export const openApiDocument = {
     openapi: '3.1.0',
     info: {
@@ -35,6 +37,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
     },
     servers: [{ url: '/api/v1', description: 'Current server' }],
     tags: [
+        { name: 'Health', description: 'Liveness and readiness health checks with database and migration status' },
         { name: 'Public', description: 'Unauthenticated public read endpoints with caching and SEO sitemaps' },
         { name: 'Auth', description: 'Registration, login, email verification, password reset, token refresh, logout' },
         { name: 'Users', description: 'User profile management and bookmarks' },
@@ -74,6 +77,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
                 },
                 required: ['page', 'limit', 'total', 'totalPages'],
             },
+            ...healthSchemas,
             ...publicSchemas,
             ...usersSchemas,
             ...authSchemas,
@@ -86,6 +90,7 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         },
     },
     paths: {
+        ...healthPaths,
         ...publicPaths,
         ...usersPaths,
         ...authPaths,

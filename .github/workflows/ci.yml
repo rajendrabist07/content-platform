@@ -79,6 +79,9 @@ jobs:
       - name: Apply Database Migrations
         run: npx prisma migrate deploy
 
+      - name: Verify Schema and Migration Synchronization (Drift Check)
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+
       - name: TypeScript Typecheck
         run: npx tsc --noEmit
 

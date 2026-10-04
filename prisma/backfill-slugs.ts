@@ -45,7 +45,10 @@ export async function backfillSlugs() {
   console.log(`✅ Backfill complete. Updated ${updatedCount} posts.`);
 }
 
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+if (isDirectRun) {
   backfillSlugs()
     .catch((err) => {
       console.error('❌ Backfill failed:', err);

@@ -17,13 +17,15 @@ describe('Health & Production Foundations - Integration', () => {
   });
 
   describe('GET /api/v1/ready', () => {
-    it('should return 200 with database connectivity status', async () => {
+    it('should return 200 with database connectivity status and latest migration', async () => {
       const res = await request(app).get('/api/v1/ready');
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('status', 'ready');
       expect(res.body.database).toHaveProperty('status', 'connected');
       expect(res.body.database).toHaveProperty('responseTimeMs');
+      expect(res.body.database).toHaveProperty('latestMigration');
+      expect(typeof res.body.database.latestMigration).toBe('string');
     });
   });
 
