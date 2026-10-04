@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc --noEmit",
-    "start": "tsx src/server.ts",
+    "build": "prisma generate && tsc --noEmit",
+    "start": "prisma migrate deploy && tsx src/server.ts",
     "start:prod": "prisma migrate deploy && tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
