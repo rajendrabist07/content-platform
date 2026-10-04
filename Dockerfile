@@ -25,4 +25,4 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["npx", "tsx", "src/server.ts"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx src/server.ts"]
