@@ -24,6 +24,7 @@ export function accessLoggerMiddleware(req: Request, res: Response, next: NextFu
             status: res.statusCode,
             duration: `${durationMs}ms`,
             reqId: req.id,
+            correlationId: req.correlationId || req.id,
           },
           'Health check non-200 response'
         );
@@ -38,7 +39,10 @@ export function accessLoggerMiddleware(req: Request, res: Response, next: NextFu
       duration: `${durationMs}ms`,
       userId: req.user?.userId,
       organizationId: req.user?.organizationId,
+      ip: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent'],
       reqId: req.id,
+      correlationId: req.correlationId || req.id,
     };
 
     if (!log) return;

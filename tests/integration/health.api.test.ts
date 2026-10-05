@@ -29,22 +29,25 @@ describe('Health & Production Foundations - Integration', () => {
     });
   });
 
-  describe('X-Request-Id Middleware', () => {
-    it('should generate and return X-Request-Id header when none provided', async () => {
+  describe('X-Request-Id & X-Correlation-Id Middleware', () => {
+    it('should generate and return X-Request-Id and X-Correlation-Id headers when none provided', async () => {
       const res = await request(app).get('/api/v1/health');
 
       expect(res.headers['x-request-id']).toBeDefined();
+      expect(res.headers['x-correlation-id']).toBeDefined();
       expect(typeof res.headers['x-request-id']).toBe('string');
+      expect(res.headers['x-request-id']).toBe(res.headers['x-correlation-id']);
       expect((res.headers['x-request-id'] as string).length).toBeGreaterThan(0);
     });
 
-    it('should preserve and echo client-provided X-Request-Id header', async () => {
+    it('should preserve and echo client-provided X-Request-Id header across both headers', async () => {
       const customReqId = 'custom-request-id-12345';
       const res = await request(app)
         .get('/api/v1/health')
         .set('x-request-id', customReqId);
 
       expect(res.headers['x-request-id']).toBe(customReqId);
+      expect(res.headers['x-correlation-id']).toBe(customReqId);
     });
   });
 

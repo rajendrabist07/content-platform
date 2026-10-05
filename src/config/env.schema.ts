@@ -19,6 +19,7 @@ export const envSchema = z.object({
   EMAIL_FROM_ADDRESS: z.string().email().default('noreply@contentplatform.com'),
   EMAIL_FROM_NAME: z.string().default('Content Platform'),
   APP_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
   REQUIRE_VERIFIED_EMAIL: z
     .enum(['true', 'false'])
     .default('false')
@@ -33,7 +34,12 @@ export const envSchema = z.object({
   ALLOWED_ORIGINS: z
     .string()
     .default('http://localhost:3000')
-    .transform((raw) => raw.split(',').map((o) => o.trim()).filter(Boolean))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((o) => o.trim().replace(/\/+$/, ''))
+        .filter(Boolean)
+    )
     .refine(
       (list) =>
         list.every((o) => {
@@ -43,7 +49,10 @@ export const envSchema = z.object({
             return false;
           }
         }),
-      { message: 'ALLOWED_ORIGINS must be comma-separated origins, e.g. https://app.vercel.app (no trailing slash, no path)' },
+      {
+        message:
+          'ALLOWED_ORIGINS must be comma-separated origins, e.g. https://app.vercel.app (no trailing slash, no path)',
+      }
     ),
 });
 

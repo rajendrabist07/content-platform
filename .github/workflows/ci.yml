@@ -51,6 +51,7 @@ jobs:
       EMAIL_FROM_ADDRESS: "noreply@contentplatform.com"
       EMAIL_FROM_NAME: "Content Platform"
       APP_URL: "http://localhost:3000"
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
       REQUIRE_VERIFIED_EMAIL: "false"
       TURNSTILE_SECRET_KEY: "test-turnstile-secret"
       TURNSTILE_ENABLED: "false"

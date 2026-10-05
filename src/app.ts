@@ -8,6 +8,8 @@ import { requestIdMiddleware } from './middleware/requestId';
 import { accessLoggerMiddleware } from './middleware/accessLogger';
 import { generalLimiter } from './middleware/rateLimiter';
 import { openApiDocument } from './docs/openapi';
+import { ForbiddenError } from './core/errors/HttpError';
+import { logger } from './core/logger/logger';
 import postRoutes from './app/api/v1/posts/route';
 import authRoutes from './app/api/v1/auth/route';
 import commentRoutes from './app/api/v1/comments/route';
@@ -22,55 +24,96 @@ import reportRoutes from './app/api/v1/reports/route';
 import adminRoutes from './app/api/v1/admin/route';
 import { auditRouter } from './app/api/v1/audit/route';
 
-const corsOptions: CorsOptions = {
-    origin(origin, callback) {
-        if (!origin || env.ALLOWED_ORIGINS.includes(origin)) {
-            return callback(null, true);
-        }
-        return callback(null, false);
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Refresh-Token'],
-    exposedHeaders: ['X-Request-Id'],
-    maxAge: 86400,
-};
+export function getAllowedOrigins(): Set<string> {
+  const origins = new Set<string>(env.ALLOWED_ORIGINS);
+
+  if (env.APP_URL) {
+    try {
+      origins.add(new URL(env.APP_URL).origin);
+    } catch {
+      // ignore invalid URL in test mocks
+    }
+  }
+
+  if (env.NEXT_PUBLIC_SITE_URL) {
+    try {
+      origins.add(new URL(env.NEXT_PUBLIC_SITE_URL).origin);
+    } catch {
+      // ignore invalid URL in test mocks
+    }
+  }
+
+  return origins;
+}
 
 export function createApp() {
-    const app = express();
+  const app = express();
 
-    app.set('trust proxy', 1);
+  app.set('trust proxy', 1);
 
-    app.use(requestIdMiddleware);
-    app.use(accessLoggerMiddleware);
+  app.use(requestIdMiddleware);
+  app.use(accessLoggerMiddleware);
 
-    app.use(helmet());
-    app.use(cors(corsOptions));
-    app.use(express.json({ limit: '100kb' }));
+  app.use(helmet());
 
-    app.use('/api/v1/health', healthRoutes);
-    app.get('/api/v1/ready', handleReadinessCheck);
+  const corsOptions: CorsOptions = {
+    origin(origin, callback) {
+      // Allow non-browser requests (e.g. curl, server-to-server, health check probes)
+      if (!origin) {
+        return callback(null, true);
+      }
 
-    app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
-    app.get('/api/v1/docs.json', (req, res) => {
-        res.json(openApiDocument);
-    });
+      const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+      const allowedOrigins = getAllowedOrigins();
 
-    app.use(generalLimiter);
+      if (allowedOrigins.has(normalizedOrigin)) {
+        return callback(null, true);
+      }
 
-    app.use('/api/v1/posts', postRoutes);
-    app.use('/api/v1/auth', authRoutes);
-    app.use('/api/v1/posts/:postId/comments', commentRoutes);
-    app.use('/api/v1/tags', tagRoutes);
-    app.use('/api/v1/ai', aiRoutes);
-    app.use('/api/v1/notifications', notificationRoutes);
-    app.use('/api/v1/public', publicRoutes);
-    app.use('/api/v1/users', userRoutes);
-    app.use('/api/v1/bookmarks', bookmarkRoutes);
-    app.use('/api/v1/reports', reportRoutes);
-    app.use('/api/v1/admin', adminRoutes);
-    app.use('/api/v1', auditRouter);
+      logger.warn({ origin: normalizedOrigin }, 'CORS request rejected: origin not allowed');
+      return callback(new ForbiddenError(`Origin '${origin}' not allowed by CORS policy`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-Id',
+      'X-Correlation-Id',
+      'X-Refresh-Token',
+      'Idempotency-Key',
+    ],
+    exposedHeaders: ['X-Request-Id', 'X-Correlation-Id'],
+    maxAge: 86400,
+  };
 
-    app.use(errorMiddleware);
+  app.use(cors(corsOptions));
+  app.use(express.json({ limit: '100kb' }));
 
-    return app;
+  app.use('/api/v1/health', healthRoutes);
+  app.get('/api/v1/ready', handleReadinessCheck);
+
+  app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+  app.get('/api/v1/docs.json', (req, res) => {
+    res.json(openApiDocument);
+  });
+
+  app.use(generalLimiter);
+
+  app.use('/api/v1/posts', postRoutes);
+  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/posts/:postId/comments', commentRoutes);
+  app.use('/api/v1/tags', tagRoutes);
+  app.use('/api/v1/ai', aiRoutes);
+  app.use('/api/v1/notifications', notificationRoutes);
+  app.use('/api/v1/public', publicRoutes);
+  app.use('/api/v1/users', userRoutes);
+  app.use('/api/v1/bookmarks', bookmarkRoutes);
+  app.use('/api/v1/reports', reportRoutes);
+  app.use('/api/v1/admin', adminRoutes);
+  app.use('/api/v1', auditRouter);
+
+  app.use(errorMiddleware);
+
+  return app;
 }
