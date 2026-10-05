@@ -1,10 +1,10 @@
-import { PrismaClient, UserRole, PostStatus, NotificationType } from '@prisma/client';
+import { PrismaClient, UserRole, TrustLevel, UserStatus, PostStatus, ReportTarget, ReportReason, ReportStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting database seed...');
+  console.log('🌱 Starting database seed for Chronicle...');
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
@@ -32,12 +32,14 @@ async function main() {
   // 2. Users
   const ownerUser = await prisma.user.upsert({
     where: { email: 'owner@acme.com' },
-    update: {},
+    update: { trustLevel: TrustLevel.TRUSTED, status: UserStatus.ACTIVE },
     create: {
       email: 'owner@acme.com',
       name: 'Alice Owner',
       passwordHash,
       role: UserRole.OWNER,
+      trustLevel: TrustLevel.TRUSTED,
+      status: UserStatus.ACTIVE,
       organizationId: acmeOrg.id,
       emailVerifiedAt: new Date(),
       profile: {
@@ -51,17 +53,19 @@ async function main() {
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@acme.com' },
-    update: {},
+    update: { trustLevel: TrustLevel.TRUSTED, status: UserStatus.ACTIVE },
     create: {
       email: 'admin@acme.com',
       name: 'Bob Admin',
       passwordHash,
       role: UserRole.ADMIN,
+      trustLevel: TrustLevel.TRUSTED,
+      status: UserStatus.ACTIVE,
       organizationId: acmeOrg.id,
       emailVerifiedAt: new Date(),
       profile: {
         create: {
-          bio: 'Platform Lead & DevOps Engineer.',
+          bio: 'Platform Lead & Trust / Moderation Officer.',
           avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
         },
       },
@@ -70,45 +74,49 @@ async function main() {
 
   const memberUser = await prisma.user.upsert({
     where: { email: 'member@acme.com' },
-    update: {},
+    update: { trustLevel: TrustLevel.MEMBER, status: UserStatus.ACTIVE },
     create: {
       email: 'member@acme.com',
       name: 'Charlie Member',
       passwordHash,
       role: UserRole.MEMBER,
+      trustLevel: TrustLevel.MEMBER,
+      status: UserStatus.ACTIVE,
       organizationId: acmeOrg.id,
       emailVerifiedAt: new Date(),
       profile: {
         create: {
-          bio: 'Fullstack TypeScript Developer.',
+          bio: 'Fullstack TypeScript Developer & Technical Writer.',
           avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde',
         },
       },
     },
   });
 
-  const techUser = await prisma.user.upsert({
-    where: { email: 'writer@techstart.io' },
-    update: {},
+  const newUser = await prisma.user.upsert({
+    where: { email: 'newbie@acme.com' },
+    update: { trustLevel: TrustLevel.NEW, status: UserStatus.ACTIVE },
     create: {
-      email: 'writer@techstart.io',
-      name: 'Diana Writer',
+      email: 'newbie@acme.com',
+      name: 'Nathan Newbie',
       passwordHash,
       role: UserRole.MEMBER,
-      organizationId: techOrg.id,
+      trustLevel: TrustLevel.NEW,
+      status: UserStatus.ACTIVE,
+      organizationId: acmeOrg.id,
       emailVerifiedAt: new Date(),
       profile: {
         create: {
-          bio: 'AI & Data Science Writer.',
+          bio: 'Aspiring systems programmer.',
           avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
         },
       },
     },
   });
 
-  console.log('✅ Users seeded: Alice (OWNER), Bob (ADMIN), Charlie (MEMBER), Diana (MEMBER)');
+  console.log('✅ Users seeded with trust levels: Alice (TRUSTED), Bob (ADMIN), Charlie (MEMBER), Nathan (NEW)');
 
-  // 3. Tags
+  // 3. Tags (Canonical)
   const tagNames = ['typescript', 'architecture', 'postgresql', 'database', 'ai', 'security'];
   const tags = await Promise.all(
     tagNames.map((name) =>
@@ -120,9 +128,8 @@ async function main() {
     )
   );
 
-  console.log('✅ Tags seeded:', tags.map((t) => t.name).join(', '));
-
   const tagMap = new Map(tags.map((t) => [t.name, t.id]));
+  console.log('✅ Tags seeded:', tags.map((t) => t.name).join(', '));
 
   // 4. Posts
   const post1 = await prisma.post.upsert({
@@ -175,90 +182,116 @@ async function main() {
     },
   });
 
-  const draftPost = await prisma.post.upsert({
+  const pendingPost = await prisma.post.upsert({
     where: {
       organizationId_slug: {
         organizationId: acmeOrg.id,
-        slug: 'draft-zero-trust-security-in-modern-apis',
+        slug: 'concurrency-control-in-modern-distributed-databases',
       },
     },
     update: {},
     create: {
-      title: 'Draft: Zero-Trust Security in Modern APIs',
-      slug: 'draft-zero-trust-security-in-modern-apis',
-      content: `Work in progress draft on token rotation and rate limiting.`,
-      status: PostStatus.DRAFT,
-      authorId: adminUser.id,
+      title: 'Concurrency Control in Modern Distributed Databases',
+      slug: 'concurrency-control-in-modern-distributed-databases',
+      content: `A deep dive into 2PL vs MVCC and snapshot isolation anomalies in modern distributed architectures.`,
+      status: PostStatus.PENDING_REVIEW,
+      authorId: newUser.id,
       organizationId: acmeOrg.id,
       tags: {
-        create: [{ tagId: tagMap.get('security')! }],
+        create: [{ tagId: tagMap.get('database')! }],
       },
     },
   });
 
-  console.log('✅ Posts created:', post1.title, post2.title, draftPost.title);
+  console.log('✅ Posts created:', post1.title, post2.title, pendingPost.title);
 
-  // 5. Comments & Threaded Replies
-  const comment1 = await prisma.comment.create({
-    data: {
+  // 5. Comprehension Layer (Quiz & Attempts)
+  const quiz1 = await prisma.quiz.upsert({
+    where: { postId: post1.id },
+    update: {},
+    create: {
       postId: post1.id,
-      authorId: memberUser.id,
-      content: 'Fantastic article! Clean architecture makes testing services with mock repositories so straightforward.',
+      questions: [
+        {
+          id: 'q1',
+          question: 'What is the responsibility of the Service layer in Clean Architecture?',
+          options: [
+            'Parsing raw HTTP headers',
+            'Executing pure domain and business logic',
+            'Directly building SQL string queries',
+            'Managing frontend DOM mutations',
+          ],
+          correctIndex: 1,
+          explanation: 'The service layer is decoupled from HTTP and database drivers, isolating business rules.',
+          sourceEvidence: 'Service layer executes pure business logic',
+        },
+        {
+          id: 'q2',
+          question: 'Which component encapsulates Prisma ORM database interactions?',
+          options: ['Route handler', 'Controller', 'Repository', 'Validator'],
+          correctIndex: 2,
+          explanation: 'Repositories encapsulate database queries and persistence details.',
+          sourceEvidence: 'Repository encapsulates database queries and Prisma ORM',
+        },
+      ] as any,
     },
   });
 
-  await prisma.comment.create({
-    data: {
-      postId: post1.id,
-      authorId: ownerUser.id,
-      parentId: comment1.id,
-      content: 'Glad you found it helpful Charlie! Unit tests run in milliseconds when decoupled from the database.',
-    },
-  });
-
-  console.log('✅ Threaded comments seeded');
-
-  // 6. Likes and Bookmarks
-  await prisma.postLike.upsert({
-    where: { postId_userId: { postId: post1.id, userId: memberUser.id } },
-    update: {},
-    create: { postId: post1.id, userId: memberUser.id },
-  });
-
-  await prisma.bookmark.upsert({
-    where: { postId_userId: { postId: post1.id, userId: memberUser.id } },
-    update: {},
-    create: { postId: post1.id, userId: memberUser.id },
-  });
-
-  console.log('✅ Likes and Bookmarks seeded');
-
-  // 7. Audit Log Seed
-  await prisma.auditLog.createMany({
+  await prisma.quizAttempt.createMany({
     data: [
       {
-        organizationId: acmeOrg.id,
-        userId: ownerUser.id,
-        action: 'AUTH_REGISTER',
-        resource: 'User',
-        resourceId: ownerUser.id,
-        ipAddress: '127.0.0.1',
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-        metadata: { email: ownerUser.email, role: 'OWNER' },
+        quizId: quiz1.id,
+        userId: memberUser.id,
+        score: 2,
+        totalQuestions: 2,
+        answers: [1, 2] as any,
       },
       {
-        organizationId: acmeOrg.id,
-        userId: ownerUser.id,
-        action: 'AUTH_LOGIN_SUCCESS',
-        resource: 'User',
-        resourceId: ownerUser.id,
-        ipAddress: '127.0.0.1',
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        quizId: quiz1.id,
+        userId: newUser.id,
+        score: 1,
+        totalQuestions: 2,
+        answers: [1, 0] as any,
       },
     ],
   });
 
-  console.log('✅ Seed finished successfully! 🚀');
+  console.log('✅ Comprehension Quiz & Attempts seeded for Post 1');
+
+  // 6. Reports & Moderation
+  await prisma.report.upsert({
+    where: {
+      reporterId_targetType_targetId: {
+        reporterId: memberUser.id,
+        targetType: ReportTarget.POST,
+        targetId: post2.id,
+      },
+    },
+    update: {},
+    create: {
+      reporterId: memberUser.id,
+      targetType: ReportTarget.POST,
+      targetId: post2.id,
+      reason: ReportReason.SPAM,
+      details: 'Automated test report for moderation verification.',
+      status: ReportStatus.OPEN,
+    },
+  });
+
+  console.log('✅ Moderation Report seeded');
+
+  // 7. Background Jobs Queue
+  await prisma.backgroundJob.create({
+    data: {
+      name: 'article:digest_notification',
+      payload: { orgId: acmeOrg.id, date: new Date().toISOString() } as any,
+      status: 'COMPLETED',
+      attempts: 1,
+    },
+  });
+
+  console.log('✅ Background Jobs seeded');
+  console.log('🎉 Seed finished successfully! Chronicle is ready for production. 🚀');
 }
 
 main()
