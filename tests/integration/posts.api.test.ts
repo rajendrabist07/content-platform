@@ -135,6 +135,11 @@ describe('Posts API - Integration', () => {
                 .set('Authorization', `Bearer ${userAToken}`)
                 .send({ title: 'Published Post Sample', content: 'This is a published post.', status: 'DRAFT' });
 
+            await prisma.user.update({
+                where: { id: userAId },
+                data: { trustLevel: 'MEMBER' },
+            });
+
             await request(app)
                 .patch(`/api/v1/posts/${publishedPost.body.data.id}/publish`)
                 .set('Authorization', `Bearer ${userAToken}`);

@@ -1,4 +1,4 @@
-import type { PostStatus } from '@prisma/client';
+import type { PostStatus, TrustLevel } from '@prisma/client';
 import type { Request, Response, NextFunction } from 'express';
 import { postService } from './post.service';
 import { createPostSchema, updatePostSchema } from './post.validation';
@@ -20,7 +20,8 @@ export class PostController {
       const post = await postService.createPost(
         result.data,
         req.user.userId,
-        req.user.organizationId
+        req.user.organizationId,
+        (req.user.trustLevel as TrustLevel) || 'NEW'
       );
 
       res.status(201).json({ success: true, data: toPostDTO(post) });
@@ -35,7 +36,12 @@ export class PostController {
       const postId = req.params.id;
       if (typeof postId !== 'string' || !postId) throw new ValidationError('Post id is required in URL');
 
-      const post = await postService.publishPost(postId, req.user.userId, req.user.role);
+      const post = await postService.publishPost(
+        postId,
+        req.user.userId,
+        req.user.role,
+        (req.user.trustLevel as TrustLevel) || 'NEW'
+      );
       res.json({ success: true, data: toPostDTO(post) });
     } catch (err) {
       next(err);
@@ -54,8 +60,16 @@ export class PostController {
 
       if (req.query.status !== undefined) {
         const rawStatus = req.query.status;
-        if (rawStatus !== 'DRAFT' && rawStatus !== 'PUBLISHED' && rawStatus !== 'ARCHIVED') {
-          throw new ValidationError('Status must be one of DRAFT, PUBLISHED, or ARCHIVED');
+        if (
+          rawStatus !== 'DRAFT' &&
+          rawStatus !== 'PENDING_REVIEW' &&
+          rawStatus !== 'PUBLISHED' &&
+          rawStatus !== 'REJECTED' &&
+          rawStatus !== 'ARCHIVED'
+        ) {
+          throw new ValidationError(
+            'Status must be one of DRAFT, PENDING_REVIEW, PUBLISHED, REJECTED, or ARCHIVED'
+          );
         }
         status = rawStatus as PostStatus;
       }
@@ -99,7 +113,13 @@ export class PostController {
       const result = updatePostSchema.safeParse(req.body);
       if (!result.success) throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
 
-      const post = await postService.updatePost(postId, req.user.userId, req.user.role, result.data);
+      const post = await postService.updatePost(
+        postId,
+        req.user.userId,
+        req.user.role,
+        result.data,
+        (req.user.trustLevel as TrustLevel) || 'NEW'
+      );
       res.json({ success: true, data: toPostDTO(post) });
     } catch (err) {
       next(err);

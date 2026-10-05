@@ -7,46 +7,43 @@ import { notificationsSchemas, notificationsPaths } from './features/notificatio
 import { publicSchemas, publicPaths } from './features/public.docs';
 import { usersSchemas, usersPaths } from './features/users.docs';
 import { auditSchemas, auditPaths } from './features/audit.docs';
-
+import { reportsSchemas, reportsPaths } from './features/reports.docs';
+import { adminSchemas, adminPaths } from './features/admin.docs';
 import { healthSchemas, healthPaths } from './features/health.docs';
 
 export const openApiDocument = {
     openapi: '3.1.0',
     info: {
-        title: 'Content Platform API',
+        title: 'Chronicle Platform API',
         version: '1.0.0',
         description: `
-Backend API for the Content Platform (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement, Security & Audit Logs).
+Backend API for Chronicle (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement, Security, Moderation, Trust & Audit Logs).
 
 **Response envelope** — every response has the shape \`{ success, data?, message?, statusCode? }\`.
 
 **Errors** — \`success: false\` with a human-readable \`message\` and matching HTTP status code:
-400 (validation), 401 (authentication), 403 (authorization — ownership/role), 404 (not found,
-including cross-organization access to avoid leaking existence), 409 (conflict/duplicate),
-429 (rate limited), 500 (unexpected — generic message only, details are server-side logged),
-503 (service unavailable — upstream AI failure).
+400 (validation), 401 (authentication), 403 (authorization — ownership/role/status), 404 (not found),
+409 (conflict/duplicate), 429 (rate limited), 500 (unexpected server error), 503 (upstream service unavailable).
 
 **Authentication** — \`POST /auth/register\` and \`POST /auth/login\` return an \`accessToken\`
-(15 min) and a \`refreshToken\` (30 days, DB-backed and revocable via \`POST /auth/logout\`).
+(15 min) and a \`refreshToken\` (30 days, DB-backed and revocable via \`POST /auth/logout\` or \`/auth/sessions\`).
 Send \`Authorization: Bearer <accessToken>\` on every protected request.
-
-**Authorization** — ownership-based (only the author of a Post/Comment can update/publish/delete
-it) plus role-based (ADMIN/OWNER can act on any user's Post/Comment). Posts/Comments/Tags are
-implicitly scoped to the caller's Organization, derived from the JWT — never from the request body.
     `.trim(),
     },
     servers: [{ url: '/api/v1', description: 'Current server' }],
     tags: [
-        { name: 'Health', description: 'Liveness and readiness health checks with database and migration status' },
-        { name: 'Public', description: 'Unauthenticated public read endpoints with caching and SEO sitemaps' },
-        { name: 'Auth', description: 'Registration, login, email verification, password reset, token refresh, logout' },
+        { name: 'Health', description: 'Liveness and readiness health checks' },
+        { name: 'Public', description: 'Public read endpoints with caching and SEO sitemaps' },
+        { name: 'Auth', description: 'Authentication, email verification, sessions, passwords' },
         { name: 'Users', description: 'User profile management and bookmarks' },
-        { name: 'Posts', description: 'Blog post CRUD, pagination, publishing, likes, bookmarks' },
+        { name: 'Posts', description: 'Post publishing, reviews, and interactions' },
+        { name: 'Reports', description: 'Trust & Safety content and user reporting' },
+        { name: 'Admin Moderation', description: 'Moderation queue, user trust management, and review actions' },
         { name: 'Comments', description: 'Threaded comments on posts' },
-        { name: 'Tags', description: 'Tag creation and many-to-many attachment to posts' },
-        { name: 'Notifications', description: 'In-app notification listing and read status management' },
-        { name: 'AI', description: 'AI-assisted content generation and optimization' },
-        { name: 'Audit', description: 'Security event and compliance audit logs' },
+        { name: 'Tags', description: 'Canonical tag system' },
+        { name: 'Notifications', description: 'In-app notification system' },
+        { name: 'AI', description: 'Grounded AI assistance and comprehension tools' },
+        { name: 'Audit', description: 'Security and audit trail logs' },
     ],
     components: {
         securitySchemes: {
@@ -85,6 +82,8 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
             ...commentsSchemas,
             ...tagsSchemas,
             ...notificationsSchemas,
+            ...reportsSchemas,
+            ...adminSchemas,
             ...aiSchemas,
             ...auditSchemas,
         },
@@ -98,6 +97,8 @@ implicitly scoped to the caller's Organization, derived from the JWT — never f
         ...commentsPaths,
         ...tagsPaths,
         ...notificationsPaths,
+        ...reportsPaths,
+        ...adminPaths,
         ...aiPaths,
         ...auditPaths,
     },

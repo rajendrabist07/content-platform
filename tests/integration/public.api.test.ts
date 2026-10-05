@@ -48,6 +48,12 @@ describe('Public API & SEO Slugs - Integration', () => {
         userToken = userRes.body.data.accessToken;
         userId = userRes.body.data.user.id;
 
+        // Set user to MEMBER trust level so published posts are immediately published
+        await prisma.user.update({
+            where: { id: userId },
+            data: { trustLevel: 'MEMBER' },
+        });
+
         // Create a published post
         const pubPost = await request(app)
             .post('/api/v1/posts')

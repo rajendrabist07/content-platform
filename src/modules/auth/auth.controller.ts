@@ -167,7 +167,8 @@ class AuthController {
         throw new ValidationError('refreshToken is required');
       }
 
-      const { accessToken } = await authService.refreshAccessToken(refreshToken);
+      const context = { ipAddress: req.ip, userAgent: req.get('user-agent') };
+      const { accessToken } = await authService.refreshAccessToken(refreshToken, context);
 
       res.status(200).json({ success: true, data: { accessToken } });
     } catch (err) {
@@ -203,6 +204,67 @@ class AuthController {
       res.status(200).json({
         success: true,
         data: toUserDTO(user),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getSessions(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const currentRefreshToken =
+        (req.headers['x-refresh-token'] as string) || (req.query.refreshToken as string) || undefined;
+      const sessions = await authService.listSessions(req.user.userId, currentRefreshToken);
+
+      res.status(200).json({
+        success: true,
+        data: sessions,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async revokeSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const id = req.params.id as string;
+      if (!id) {
+        throw new ValidationError('Session ID is required');
+      }
+
+      await authService.revokeSession(req.user.userId, id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Session revoked successfully',
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async revokeAllOtherSessions(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
+      const currentRefreshToken =
+        req.body?.refreshToken || (req.headers['x-refresh-token'] as string) || undefined;
+      const result = await authService.revokeAllOtherSessions(req.user.userId, currentRefreshToken);
+
+      res.status(200).json({
+        success: true,
+        message: `Revoked ${result.revokedCount} other session(s)`,
+        data: result,
       });
     } catch (err) {
       next(err);

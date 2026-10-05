@@ -28,8 +28,10 @@ model User {
   passwordHash   String
   name           String
   role           UserRole     @default(MEMBER)
+  trustLevel     TrustLevel   @default(NEW)
+  status         UserStatus   @default(ACTIVE)
   emailVerifiedAt DateTime?
-  emailNotifications Boolean @default(true)
+  emailNotifications Boolean  @default(true)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -43,6 +45,8 @@ model User {
   notifications  Notification[]
   likes          PostLike[]
   bookmarks      Bookmark[]
+  reportsCreated Report[]     @relation("ReporterUser")
+  reportsResolved Report[]    @relation("ResolverUser")
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -52,6 +56,8 @@ model User {
 
   @@index([organizationId])
   @@index([email])
+  @@index([trustLevel])
+  @@index([status])
   @@map("users")
 }
 
@@ -59,6 +65,17 @@ enum UserRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum TrustLevel {
+  NEW
+  MEMBER
+  TRUSTED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 model Profile {
@@ -73,29 +90,30 @@ model Profile {
 }
 
 model Post {
-  id             String        @id @default(cuid())
-  title          String
-  slug           String
-  content        String        @db.Text
-  status         PostStatus    @default(DRAFT)
-  publishedAt    DateTime?
+  id              String        @id @default(cuid())
+  title           String
+  slug            String
+  content         String        @db.Text
+  status          PostStatus    @default(DRAFT)
+  rejectionReason String?       @db.Text
+  publishedAt     DateTime?
 
-  authorId       String
-  author         User          @relation("PostAuthor", fields: [authorId], references: [id])
+  authorId        String
+  author          User          @relation("PostAuthor", fields: [authorId], references: [id])
 
-  organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  tags           TagsOnPosts[]
-  comments       Comment[]
-  likes          PostLike[]
-  bookmarks      Bookmark[]
+  tags            TagsOnPosts[]
+  comments        Comment[]
+  likes           PostLike[]
+  bookmarks       Bookmark[]
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  createdById    String?
-  updatedById    String?
-  deletedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdById     String?
+  updatedById     String?
+  deletedAt       DateTime?
 
   @@unique([organizationId, slug])
   @@index([authorId])
@@ -108,7 +126,9 @@ model Post {
 
 enum PostStatus {
   DRAFT
+  PENDING_REVIEW
   PUBLISHED
+  REJECTED
   ARCHIVED
 }
 
@@ -159,12 +179,15 @@ model Comment {
 
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  ipAddress  String?
+  lastUsedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -239,6 +262,49 @@ model Bookmark {
   @@index([userId])
   @@index([postId])
   @@map("bookmarks")
+}
+
+model Report {
+  id             String        @id @default(cuid())
+  reporterId     String
+  reporter       User          @relation("ReporterUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType     ReportTarget
+  targetId       String
+  reason         ReportReason
+  details        String?       @db.Text
+  status         ReportStatus  @default(OPEN)
+  resolvedById   String?
+  resolvedBy     User?         @relation("ResolverUser", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionNote String?       @db.Text
+  resolvedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId])
+  @@map("reports")
+}
+
+enum ReportTarget {
+  POST
+  COMMENT
+  USER
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  MISINFORMATION
+  ILLEGAL
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }
 
 model AuditLog {

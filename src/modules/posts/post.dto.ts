@@ -4,6 +4,7 @@ export interface PostResponseDTO {
   slug: string;
   content: string;
   status: string;
+  rejectionReason?: string | null;
   publishedAt: string | null;
   authorName: string;
   authorId: string;
