@@ -61,7 +61,7 @@ export class EmailService {
   }
 
   async sendVerificationEmail(to: string, name: string, token: string): Promise<void> {
-    const verificationUrl = `${env.APP_URL}/auth/verify-email?token=${encodeURIComponent(token)}`;
+    const verificationUrl = `${env.APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
     const { html, text, subject } = renderEmailVerificationTemplate({
       name,
       verificationUrl,
@@ -76,7 +76,7 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, name: string, token: string): Promise<void> {
-    const resetUrl = `${env.APP_URL}/auth/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${env.APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
     const { html, text, subject } = renderPasswordResetTemplate({
       name,
       resetUrl,
