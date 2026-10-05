@@ -14,6 +14,7 @@ export function toPostDTO(post: PostWithRelations): PostResponseDTO {
     slug: post.slug,
     content: post.content,
     status: post.status,
+    rejectionReason: post.rejectionReason ?? null,
     publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
     authorName: post.author?.name ?? 'Unknown',
     authorId: post.authorId,

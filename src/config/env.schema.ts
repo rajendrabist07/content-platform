@@ -24,6 +24,12 @@ export const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  TURNSTILE_SECRET_KEY: z.string().optional(),
+  TURNSTILE_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
   ALLOWED_ORIGINS: z
     .string()
     .default('http://localhost:3000')

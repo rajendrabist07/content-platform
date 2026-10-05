@@ -3,10 +3,17 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { env } from '../../config/env';
 import { prisma } from '../../lib/prisma';
-import { ConflictError, UnauthorizedError, NotFoundError, ValidationError } from '../../core/errors/HttpError';
+import {
+  ConflictError,
+  UnauthorizedError,
+  NotFoundError,
+  ValidationError,
+  ForbiddenError,
+} from '../../core/errors/HttpError';
 import { logger } from '../../core/logger/logger';
 import { emailService } from '../email/email.service';
 import { auditService } from '../audit/audit.service';
+import { verifyTurnstileToken } from './turnstile.client';
 import type {
   RegisterInput,
   LoginInput,
@@ -27,8 +34,22 @@ interface JwtPayload {
   role: string;
 }
 
+export interface SessionItem {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  isCurrent: boolean;
+}
+
 class AuthService {
   async register(input: RegisterInput, context?: AuthContext) {
+    // 1. Turnstile verification if enabled
+    if (env.TURNSTILE_ENABLED) {
+      await verifyTurnstileToken(input.captchaToken, context?.ipAddress);
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -85,6 +106,8 @@ class AuthService {
         name: input.name,
         organizationId,
         role,
+        trustLevel: 'NEW',
+        status: 'ACTIVE',
         emailVerifiedAt: null,
       },
     });
@@ -125,7 +148,7 @@ class AuthService {
       organizationId: user.organizationId,
       role: user.role,
     });
-    const refreshToken = await this.generateRefreshToken(user.id);
+    const refreshToken = await this.generateRefreshToken(user.id, context);
 
     return { user, accessToken, refreshToken };
   }
@@ -363,6 +386,17 @@ class AuthService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
+    if (user.status === 'SUSPENDED') {
+      auditService.log({
+        action: 'AUTH_LOGIN_SUSPENDED',
+        userId: user.id,
+        organizationId: user.organizationId,
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+      });
+      throw new ForbiddenError('Your account has been suspended');
+    }
+
     const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
 
     if (!isPasswordValid) {
@@ -394,12 +428,12 @@ class AuthService {
       organizationId: user.organizationId,
       role: user.role,
     });
-    const refreshToken = await this.generateRefreshToken(user.id);
+    const refreshToken = await this.generateRefreshToken(user.id, context);
 
     return { user, accessToken, refreshToken };
   }
 
-  async refreshAccessToken(refreshToken: string) {
+  async refreshAccessToken(refreshToken: string, context?: AuthContext) {
     const stored = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -414,6 +448,21 @@ class AuthService {
       throw new UnauthorizedError('Refresh token expired, please login again');
     }
 
+    if (stored.user.status === 'SUSPENDED') {
+      await prisma.refreshToken.deleteMany({ where: { userId: stored.user.id } });
+      throw new ForbiddenError('Your account has been suspended');
+    }
+
+    // Update lastUsedAt
+    await prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: {
+        lastUsedAt: new Date(),
+        ...(context?.userAgent ? { userAgent: context.userAgent } : {}),
+        ...(context?.ipAddress ? { ipAddress: context.ipAddress } : {}),
+      },
+    });
+
     const accessToken = this.generateAccessToken({
       userId: stored.user.id,
       organizationId: stored.user.organizationId,
@@ -427,20 +476,81 @@ class AuthService {
     await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
   }
 
+  async listSessions(userId: string, currentRefreshToken?: string): Promise<SessionItem[]> {
+    const tokens = await prisma.refreshToken.findMany({
+      where: {
+        userId,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        userAgent: true,
+        ipAddress: true,
+        createdAt: true,
+        lastUsedAt: true,
+        token: true,
+      },
+    });
+
+    return tokens.map((t) => ({
+      id: t.id,
+      userAgent: t.userAgent,
+      ipAddress: t.ipAddress,
+      createdAt: t.createdAt,
+      lastUsedAt: t.lastUsedAt,
+      isCurrent: currentRefreshToken ? t.token === currentRefreshToken : false,
+    }));
+  }
+
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    const session = await prisma.refreshToken.findFirst({
+      where: { id: sessionId, userId },
+    });
+
+    if (!session) {
+      throw new NotFoundError('Session');
+    }
+
+    await prisma.refreshToken.delete({ where: { id: sessionId } });
+  }
+
+  async revokeAllOtherSessions(userId: string, currentRefreshToken?: string): Promise<{ revokedCount: number }> {
+    if (!currentRefreshToken) {
+      throw new ValidationError('Current refresh token is required to preserve this session');
+    }
+
+    const { count } = await prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+        token: { not: currentRefreshToken },
+      },
+    });
+
+    return { revokedCount: count };
+  }
+
   private generateAccessToken(payload: JwtPayload): string {
     return jwt.sign(payload, env.JWT_SECRET, {
       expiresIn: env.JWT_EXPIRES_IN,
     } as jwt.SignOptions);
   }
 
-  private async generateRefreshToken(userId: string): Promise<string> {
+  private async generateRefreshToken(userId: string, context?: AuthContext): Promise<string> {
     const token = crypto.randomBytes(40).toString('hex');
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     await prisma.refreshToken.create({
-      data: { token, userId, expiresAt },
+      data: {
+        token,
+        userId,
+        userAgent: context?.userAgent ?? null,
+        ipAddress: context?.ipAddress ?? null,
+        lastUsedAt: new Date(),
+        expiresAt,
+      },
     });
 
     return token;
@@ -449,7 +559,7 @@ class AuthService {
   verifyToken(token: string): JwtPayload {
     try {
       return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-    } catch (err) {
+    } catch {
       throw new UnauthorizedError('Invalid or expired token');
     }
   }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isDisposableEmail } from './disposable-domains';
 
 export const passwordSchema = z
   .string()
@@ -7,11 +8,17 @@ export const passwordSchema = z
 
 export const registerSchema = z
   .object({
-    email: z.string().email({ message: 'Invalid email format' }),
+    email: z
+      .string()
+      .email({ message: 'Invalid email format' })
+      .refine((val) => !isDisposableEmail(val), {
+        message: 'Please use a valid personal or work email address',
+      }),
     password: passwordSchema,
     name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
     organizationName: z.string().min(2, { message: 'Organization name must be at least 2 characters' }).optional(),
     organizationId: z.string().min(1).optional(),
+    captchaToken: z.string().optional(),
   })
   .refine((data) => data.organizationName || data.organizationId, {
     message: 'Either organizationName (to create new) or organizationId (to join existing) is required',
@@ -28,6 +35,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email({ message: 'Invalid email format' }),
+  captchaToken: z.string().optional(),
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;

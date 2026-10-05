@@ -102,6 +102,11 @@ Error responses always format as:
 | `DELETE` | `/api/v1/posts/{id}/like` | Unlike a post | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `POST` | `/api/v1/posts/{id}/bookmark` | Bookmark a post | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `DELETE` | `/api/v1/posts/{id}/bookmark` | Remove bookmark from a post | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/quiz/generate` | Generate an AI-grounded comprehension quiz for an article | 🔒 Bearer | postId (path) | 200/201 Envelope |
+| `GET` | `/api/v1/posts/{postId}/quiz` | Get the comprehension quiz for an article (without spoilers/answers) | 🌐 Public | postId (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/quiz/attempt` | Submit answers to an article quiz and receive instant grounded feedback | 🌐 Public | postId (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/ask` | Ask this article a question and receive a grounded answer with verbatim quotes | 🌐 Public | postId (path) | 200/201 Envelope |
+| `GET` | `/api/v1/posts/{postId}/analytics/comprehension` | Get reader comprehension analytics & confusion points for an article | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `POST` | `/api/v1/posts/{postId}/comments` | Create a comment (or a threaded reply) | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `GET` | `/api/v1/posts/{postId}/comments` | List comments for a post (threaded) | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `PATCH` | `/api/v1/posts/{postId}/comments/{id}` | Update a comment | 🔒 Bearer | postId (path), id (path) | 200/201 Envelope |
@@ -114,6 +119,15 @@ Error responses always format as:
 | `GET` | `/api/v1/notifications/unread-count` | Get total unread notification count | 🔒 Bearer | None | 200/201 Envelope |
 | `PATCH` | `/api/v1/notifications/{id}/read` | Mark single notification as read | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `PATCH` | `/api/v1/notifications/read-all` | Mark all notifications as read | 🔒 Bearer | None | 200/201 Envelope |
+| `POST` | `/api/v1/reports` | Submit a moderation report | 🔒 Bearer | None | 200/201 Envelope |
+| `GET` | `/api/v1/admin/moderation/queue` | List pending posts and open reports in moderation queue | 🔒 Bearer | page (query), limit (query) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/posts/{id}/approve` | Approve and publish a pending review post | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/posts/{id}/reject` | Reject a pending post with reason | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/posts/{id}/unpublish` | Unpublish a post back to DRAFT | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `PATCH` | `/api/v1/admin/reports/{id}` | Update / resolve a moderation report | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/users/{id}/suspend` | Suspend user account and revoke sessions | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/users/{id}/restore` | Restore a suspended user account to ACTIVE | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/admin/users/{id}/set-trust-level` | Update a user trust level | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `POST` | `/api/v1/ai/suggest` | Generate post suggestions (title, tags, summary) | 🔒 Bearer | None | 200/201 Envelope |
 | `POST` | `/api/v1/ai/improve` | Improve and polish blog post prose with tone selection | 🔒 Bearer | None | 200/201 Envelope |
 | `POST` | `/api/v1/ai/outline` | Generate structured article outline for topic | 🔒 Bearer | None | 200/201 Envelope |

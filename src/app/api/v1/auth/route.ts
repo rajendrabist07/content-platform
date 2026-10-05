@@ -26,4 +26,15 @@ router.post('/change-password', authenticate, (req, res, next) =>
   authController.changePassword(req, res, next)
 );
 
+// Session management
+router.get('/sessions', authenticate, (req, res, next) =>
+  authController.getSessions(req, res, next)
+);
+router.delete('/sessions/:id', authenticate, (req, res, next) =>
+  authController.revokeSession(req, res, next)
+);
+router.post('/sessions/revoke-all-others', authenticate, (req, res, next) =>
+  authController.revokeAllOtherSessions(req, res, next)
+);
+
 export default router;

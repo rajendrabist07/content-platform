@@ -1,46 +1,76 @@
-# Content Platform API
+# Chronicle API
 
-Production-grade, multi-tenant REST API built with Node.js, TypeScript, Express, Prisma, and PostgreSQL.
+> **Technical writing you can trust — and learn from.**
 
-Designed with **Clean Architecture** (Route → Middleware → Controller → Service → Repository → Prisma), fully validated with **Zod**, documented with **OpenAPI 3.1 / Swagger**, equipped with **Google Gemini AI copilot**, transactional email infrastructure, threaded notifications, SEO slugs, engagement metrics, security audit logs, and tested with **94 unit and integration tests**.
+Chronicle is a production-grade, multi-tenant engineering publishing platform and REST API built with Node.js, TypeScript, Express, Prisma, and PostgreSQL.
+
+Unlike generic blogging engines, Chronicle combines two foundational pillars:
+1. **The Trust Layer**: Sybil and abuse resistance through tiered trust levels (`NEW`, `MEMBER`, `TRUSTED`), automated link scheme validation, disposable email rejection, Cloudflare Turnstile verification, community reporting, full admin moderation queues, session lifecycle management, and immutable audit logs.
+2. **The Comprehension Layer**: Every technical article features an AI-generated, **verifiably grounded** "Check your understanding" quiz and "Ask this article" Q&A engine. Grounding validators guarantee that answers and citations are tied directly to verbatim article text. Authors receive real-time analytics on reader comprehension and confusing concepts.
 
 ---
 
-## Key Capabilities & Architecture
+## Architecture & System Overview
 
-- **Clean Architecture & Decoupled Domain**: Strict separation of HTTP handlers, business services, repositories, and persistence.
-- **Multi-Tenant Isolation**: Users, posts, comments, tags, and audit logs are strictly scoped by Organization.
-- **Authentication & Security**:
-  - JWT access tokens (15m) + revocable database-backed refresh tokens (30d).
-  - Role-Based Access Control (RBAC): `OWNER`, `ADMIN`, `MEMBER`.
-  - Secure Email Verification & Password Reset workflows with SHA-256 tokens and constant-time execution against user enumeration.
-  - Brute force protection with tiered rate limiters (`generalLimiter`, `authActionLimiter`).
-  - Security audit logging recording authentication lifecycle events and profile mutations.
-- **AI Copilot (Google Gemini 2.5)**:
-  - `POST /api/v1/ai/suggest`: Intelligent title, tags, and summary generation.
-  - `POST /api/v1/ai/improve`: Prose clarity, structure improvement, critique, and readability scoring.
-  - `POST /api/v1/ai/outline`: Comprehensive structured article outline generation with section points.
-  - Delimiter-wrapped prompts (`<post_content>`, `<outline_topic>`) and Zod schema-enforced output sanitization.
-- **Public SEO & Publishing Pipeline**:
-  - `GET /api/v1/public/posts`: Fast cached public read endpoints for published content.
-  - Deterministic, collision-resistant slug generation with immutability guarantees once published.
-  - Dynamic XML sitemap generator (`/api/v1/public/sitemap`) with cache headers.
-- **Engagement & Social**:
-  - Post likes with toggle endpoints and optimistic like count aggregation.
-  - User bookmarks with paginated bookmark feeds (`/api/v1/bookmarks`).
-  - User profile management with avatars, bios, and notification preferences.
-- **In-App & Email Notifications**:
-  - Async comment and reply notification dispatch.
-  - In-app notification inbox with unread counts and batch mark-as-read endpoints.
-  - Transactional email transport (Brevo API + Console dev fallback) with exponential backoff retries.
-- **Observability & Ops**:
-  - Structured JSON logging with `Pino` and request tracking via `X-Request-Id`.
-  - Live liveness (`/api/v1/health`) and database readiness (`/api/v1/ready`) probes.
-  - Graceful shutdown draining active HTTP connections and database pools on `SIGTERM` / `SIGINT`.
-- **Developer Experience**:
-  - OpenAPI 3.1 interactive Swagger UI at `/api/v1/docs` (generated from real Zod schemas).
-  - Seed script populating organizations, users, posts, threaded comments, tags, and bookmarks.
-  - Automated GitHub Actions CI pipeline running typechecking, database migrations, and 94 Vitest test suites.
+```
+[ Public Readers / Authors / Admins ]
+                 │
+           Cloudflare WAF / Turnstile CAPTCHA
+                 │
+           Express 5 Gateway & Middleware Pipeline
+           ├── Request ID & Structured Pino Logging
+           ├── Helmet Security Headers & CORS
+           ├── Tiered Rate Limiters (General, Auth, Public)
+           └── JWT Authentication & Account Status Enforcement
+                 │
+    ┌────────────┴─────────────────────────────┐
+    ▼                                          ▼
+[ Trust & Publishing Engine ]      [ Comprehension Engine ]
+├── Multi-Tier Trust Policies      ├── Grounded Quiz Generator
+├── Disposable Email Blocker       ├── "Ask This Article" Q&A
+├── Markdown Link Scheme Checker   ├── Verbatim Grounding Validator
+├── Anti-Self Reporting System     └── Reader Confusion Analytics
+└── Moderation Review Queue
+    │                                          │
+    └────────────────────┬─────────────────────┘
+                         ▼
+        [ Plain Postgres Durable Job Queue ]
+        └── FOR UPDATE SKIP LOCKED Worker Pool
+                         ▼
+        [ PostgreSQL 16 via Prisma ORM ]
+```
+
+---
+
+## Key Modules & Capabilities
+
+### 1. Trust & Safety Layer
+- **Tiered Author Policies**:
+  - `NEW`: 5 links max per post, daily post cap, posts enter `PENDING_REVIEW` moderation queue upon publication. Auto-promoted to `MEMBER` after $\ge 2$ approved posts and account age $\ge 3$ days.
+  - `MEMBER`: 20 links max per post, immediate publication to `PUBLISHED`.
+  - `TRUSTED`: High-throughput trusted contributor.
+- **Link & Scheme Protection**: Strict URI parsing rejects dangerous schemes (`javascript:`, `data:`, `file:`) and prevents link farming.
+- **Anti-Abuse Registration**: Rejection of disposable email domains and optional Cloudflare Turnstile token validation.
+- **Session Management**: Full visibility and control over active refresh token sessions (`GET /api/v1/auth/sessions`, `DELETE /api/v1/auth/sessions/:id`, `POST /api/v1/auth/sessions/revoke-all-others`).
+- **Admin Moderation & Governance**:
+  - Moderation queue (`/api/v1/admin/moderation/queue`) for pending posts and open reports.
+  - Post approval, rejection with feedback reason, and unpublishing.
+  - Instant user account suspension with transactional session revocation.
+
+### 2. Comprehension & Learning Layer
+- **Grounded Article Quizzes**: Generates multiple-choice comprehension checks with source quote evidence tied to the text.
+- **"Ask This Article" Grounded Q&A**: Semantic reader question answering restricted strictly to the article text, returning verified verbatim citations.
+- **Reader Analytics & Confusion Heatmaps**: Authors can inspect quiz attempt pass rates, question accuracy, and specific options that caused reader confusion.
+
+### 3. Plain PostgreSQL Background Job Queue
+- **Zero External Infrastructure**: Built directly on PostgreSQL using `FOR UPDATE SKIP LOCKED` row-level locking.
+- **Reliability & Backoff**: Automatic retry scheduling with exponential backoff and dead-letter terminal state (`FAILED`) when `maxAttempts` is reached.
+
+### 4. Core Publishing & Engagement
+- **Canonical Tag Normalization**: Real-time cleaning, deduplication, and consolidation of tag names.
+- **Deterministic SEO Slugs**: Collision-resistant slug generation with immutability once published.
+- **Threaded Comments & In-App Notifications**: Deep nested comment trees with email notification dispatch.
+- **Engagement Feed**: Post likes, user bookmarks, and public cached read feeds.
 
 ---
 
@@ -48,231 +78,72 @@ Designed with **Clean Architecture** (Route → Middleware → Controller → Se
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Runtime** | Node.js 20+ / TypeScript | ES Modules, strict typing, TS native preview |
-| **Framework** | Express 5 | Next-generation lightweight HTTP framework |
+| **Runtime** | Node.js 22+ / TypeScript 7 | ES Modules, strict typing |
+| **HTTP Framework** | Express 5 | Next-generation lightweight HTTP framework |
 | **Database & ORM** | PostgreSQL 16 / Prisma 6 | Relational schema with additive versioned migrations |
-| **Validation** | Zod | Runtime schema validation on requests and AI outputs |
-| **AI Copilot** | Google Gemini (`gemini-2.5-flash`) | Structured generative content suggestions |
-| **Email** | Brevo HTTP API / Console | Transactional email with fallback transport |
-| **Documentation** | OpenAPI 3.1 / Swagger UI | Living documentation built from domain Zod schemas |
-| **Testing** | Vitest & Supertest | Parallel unit and multi-tenant integration test runner |
-| **CI/CD** | GitHub Actions | Automated workflow for linting, migration, and testing |
+| **Validation** | Zod | Strict runtime schema validation across API and AI boundaries |
+| **AI Copilot** | Google Gemini (`gemini-2.5-flash`) | Grounded quiz generation and article Q&A engine |
+| **Email Delivery** | Brevo HTTP API / Console | Transactional email with fallback transport |
+| **Background Jobs** | PostgreSQL Row Locks | Transactional `SKIP LOCKED` job queue |
+| **Testing** | Vitest 5 & Supertest | 144 unit and integration tests across 23 test files |
+| **Documentation** | OpenAPI 3.1 & Swagger UI | Living documentation built directly from Zod domain schemas |
 
 ---
 
-## Getting Started
+## API Summary
 
-### 1. Prerequisites
-- Node.js 20+
-- PostgreSQL 16 (local or Docker)
-- npm
+### Authentication & Sessions
+- `POST /api/v1/auth/register` — Register a new organization and owner account.
+- `POST /api/v1/auth/login` — Authenticate and obtain JWT access + refresh tokens.
+- `GET /api/v1/auth/sessions` — List active login sessions with device metadata.
+- `DELETE /api/v1/auth/sessions/:id` — Revoke a specific session.
+- `POST /api/v1/auth/sessions/revoke-all-others` — Revoke all sessions except the current one.
+- `POST /api/v1/auth/verify-email` — Verify email via token.
+- `POST /api/v1/auth/forgot-password` & `reset-password` — Secure password recovery.
 
-### 2. Local Setup
+### Posts & Comprehension
+- `POST /api/v1/posts` — Create a new article (enforces link caps and trust policies).
+- `PATCH /api/v1/posts/:id/publish` — Publish article (NEW accounts move to `PENDING_REVIEW`).
+- `POST /api/v1/posts/:postId/quiz/generate` — Generate grounded multiple-choice quiz (Author/Admin).
+- `GET /api/v1/posts/:postId/quiz` — Retrieve quiz questions (omits answers).
+- `POST /api/v1/posts/:postId/quiz/attempt` — Submit quiz attempt and receive instant feedback.
+- `POST /api/v1/posts/:postId/ask` — Ask question and get grounded answer with quotes.
+- `GET /api/v1/posts/:postId/analytics/comprehension` — Reader confusion & accuracy analytics.
 
-Clone the repository and install dependencies:
+### Trust & Moderation
+- `POST /api/v1/reports` — Report abusive posts, comments, or users (requires verified email).
+- `GET /api/v1/admin/moderation/queue` — View pending review posts and reports (Admin/Owner).
+- `POST /api/v1/admin/posts/:id/approve` — Approve pending post.
+- `POST /api/v1/admin/posts/:id/reject` — Reject post with feedback.
+- `POST /api/v1/admin/users/:id/suspend` — Suspend user and revoke active sessions.
+
+---
+
+## Security Documentation
+
+- **Threat Model**: [`docs/THREAT_MODEL.md`](file:///Users/rajendrabist/Desktop/content-platform/docs/THREAT_MODEL.md) (STRIDE methodology)
+- **Security Policy**: [`docs/SECURITY.md`](file:///Users/rajendrabist/Desktop/content-platform/docs/SECURITY.md)
+- **OWASP ASVS Verification**: [`docs/ASVS_CHECKLIST.md`](file:///Users/rajendrabist/Desktop/content-platform/docs/ASVS_CHECKLIST.md) (Level 1 compliant)
+- **API Contract**: [`docs/API_CONTRACT.md`](file:///Users/rajendrabist/Desktop/content-platform/docs/API_CONTRACT.md)
+
+---
+
+## Running Locally
+
 ```bash
-git clone https://github.com/rajendrabist07/content-platform.git
-cd content-platform
+# 1. Install dependencies
 npm ci
-```
 
-Create your local `.env` configuration:
-```env
-NODE_ENV=development
-PORT=3000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/content_platform_dev?schema=public
+# 2. Apply database migrations
+npm run start:prod # Or: npx prisma migrate deploy
 
-JWT_SECRET=your-random-32-character-jwt-secret-string-here
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=30d
-
-GEMINI_API_KEY=your-google-gemini-api-key
-GEMINI_MODEL=gemini-2.5-flash
-
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-FRONTEND_URL=http://localhost:3000
-
-EMAIL_FROM_NAME="Content Platform"
-EMAIL_FROM_ADDRESS="noreply@contentplatform.com"
-BREVO_API_KEY=
-```
-
-### 3. Database Migrations & Seeding
-
-Apply database migrations:
-```bash
-npx prisma migrate dev
-```
-
-Seed the database with sample organizations, users, posts, and comments:
-```bash
-npm run db:seed
-```
-
-### 4. Running the Server
-
-Start the local development server with hot-reloading:
-```bash
-npm run dev
-```
-
-The API is live at `http://localhost:3000` with Swagger UI at `http://localhost:3000/api/v1/docs`.
-
----
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `DATABASE_URL` | **Yes** | — | PostgreSQL connection string |
-| `JWT_SECRET` | **Yes** | — | Secret for signing access tokens (>= 32 chars) |
-| `JWT_EXPIRES_IN` | No | `15m` | Access token lifetime |
-| `JWT_REFRESH_EXPIRES_IN` | No | `30d` | Refresh token lifetime |
-| `GEMINI_API_KEY` | No | — | Google Gemini API key for AI features |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model ID |
-| `BREVO_API_KEY` | No | — | Brevo API key for real transactional email |
-| `ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated CORS allowed origins |
-| `FRONTEND_URL` | No | `http://localhost:3000` | Base frontend URL for email verification links |
-| `PORT` | No | `3000` | Server HTTP port |
-
----
-
-## API Endpoints Reference
-
-All endpoints are versioned under `/api/v1`.
-
-### Public Endpoints (No Auth Required)
-- `GET /health` — Application liveness probe
-- `GET /ready` — Database connectivity readiness check
-- `GET /docs` — Interactive Swagger UI documentation
-- `GET /docs.json` — OpenAPI 3.1 JSON document
-- `GET /public/posts` — List published posts with tag filtering and caching
-- `GET /public/posts/:slug` — Fetch published post details by SEO slug
-- `GET /public/tags` — List tags with published post counts
-- `GET /public/sitemap` — XML sitemap for search indexing
-
-### Authentication (`/auth`)
-- `POST /auth/register` — Register user and new organization (or join existing)
-- `POST /auth/login` — Authenticate and receive access + refresh token
-- `POST /auth/verify-email` — Verify email via token
-- `POST /auth/resend-verification` — Resend verification email
-- `POST /auth/forgot-password` — Request password reset email
-- `POST /auth/reset-password` — Reset password using token
-- `POST /auth/change-password` — Change password (authenticated)
-- `POST /auth/refresh` — Issue new access token using refresh token
-- `POST /auth/logout` — Revoke refresh token
-
-### User Profiles & Bookmarks (`/users`, `/bookmarks`)
-- `GET /users/me` — Fetch current user profile and preferences
-- `PATCH /users/me` — Update bio, avatar, notification settings
-- `GET /bookmarks` — Paginated list of user bookmarked posts
-
-### Posts (`/posts`)
-- `GET /posts` — List organization posts (supports `status` filter, pagination)
-- `POST /posts` — Create a new post (generates SEO slug)
-- `GET /posts/:id` — Get post details by ID
-- `PUT /posts/:id` — Update post content and tags
-- `PATCH /posts/:id/publish` — Publish post and lock slug
-- `DELETE /posts/:id` — Delete post (author, ADMIN, or OWNER)
-- `POST /posts/:id/like` — Toggle like on post
-- `POST /posts/:id/bookmark` — Toggle bookmark on post
-
-### Threaded Comments (`/posts/:postId/comments`)
-- `POST /posts/:postId/comments` — Add top-level comment or threaded reply (`parentId`)
-- `GET /posts/:postId/comments` — Get nested comments tree
-- `DELETE /posts/:postId/comments/:id` — Delete comment (author, ADMIN, or OWNER)
-
-### Tags (`/tags`)
-- `GET /tags` — List organization tags
-- `POST /tags` — Create a new tag
-
-### In-App Notifications (`/notifications`)
-- `GET /notifications` — Paginated list of user notifications
-- `GET /notifications/unread-count` — Unread count for UI badges
-- `PATCH /notifications/:id/read` — Mark notification as read
-- `POST /notifications/read-all` — Mark all user notifications as read
-
-### AI Copilot (`/ai`)
-- `POST /ai/suggest` — Generate optimized titles, tags, and summary
-- `POST /ai/improve` — Content editing, tone refinement, and readability score
-- `POST /ai/outline` — Generate article structure and talking points
-
-### Security & Audit Logs (`/audit-logs`)
-- `GET /audit-logs` — List tenant audit log entries (OWNER and ADMIN only)
-
----
-
-## Database Migrations & Production Deployments
-
-This project follows an **additive-only, zero-downtime** migration strategy. Full documentation is available in [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
-
-### Local Migration Development
-```bash
-# Generate a new migration from schema changes
-npx prisma migrate dev --name <migration_name>
-
-# Apply pending migrations locally
-npx prisma migrate deploy
-
-# Validate schema synchronization & drift
+# 3. Verify environment variables
 npm run check:env
-npx prisma validate
-npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
-```
 
-### Production Hosting on Render
-- **Build Command**: `npm ci && npx prisma generate && npm run build`
-- **Start Command**: `npm run start:prod` (applies pending migrations automatically via `prisma migrate deploy` before launching Express)
-
----
-
-## Troubleshooting Common Issues
-
-| Error | Cause | Resolution |
-| :--- | :--- | :--- |
-| `P2021: Table does not exist` | Code deployed before migrations were applied to the database. | Ensure Render Start Command is set to `npm run start:prod`, or run `npx prisma migrate deploy` manually. |
-| `P2022: Column does not exist` | Schema column missing in the target database. | Run `npx prisma migrate deploy`. |
-| `503 Service Unavailable on /api/v1/ready` | Database disconnected or incomplete migration. | Inspect `/api/v1/ready` output for `failedMigration` details and check database connectivity. |
-| `429 Too Many Requests` | Rate limit threshold reached on auth routes. | Wait for the rate limit window to expire or configure higher thresholds in development. |
-
----
-
-## Testing & Quality Assurance
-
-The codebase includes **105 unit and integration tests** verifying authentication, authorization boundaries, tenant isolation, AI parsing, public feeds, bookmarks, security logs, migration readiness, and environment drift guards.
-
-```bash
-# Run all tests
+# 4. Run test suite
 npm test
 
-# Run unit tests
-npm run test:unit
-
-# Run integration tests
-npm run test:integration
-
-# Type check
-npx tsc --noEmit
-
-# Execute automated smoke test suite against running server
-./scripts/smoke.sh http://localhost:3000
+# 5. Start development server
+npm run dev
 ```
-
----
-
-## Seed Accounts (Post-Seed)
-
-After running `npm run db:seed`, the following accounts are available for testing:
-
-| Email | Password | Role | Organization |
-| :--- | :--- | :--- | :--- |
-| `owner@acme.com` | `password123` | `OWNER` | Acme Corporation |
-| `admin@acme.com` | `password123` | `ADMIN` | Acme Corporation |
-| `member@acme.com` | `password123` | `MEMBER` | Acme Corporation |
-| `writer@techstart.io` | `password123` | `MEMBER` | TechStart AI |
-
----
-
-## License
-
-This project is licensed under the ISC License.
+Interactive Swagger API documentation is available at `http://localhost:3000/api/v1/docs`.

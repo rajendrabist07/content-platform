@@ -18,6 +18,8 @@ import notificationRoutes from './app/api/v1/notifications/route';
 import publicRoutes from './app/api/v1/public/route';
 import userRoutes from './app/api/v1/users/route';
 import bookmarkRoutes from './app/api/v1/bookmarks/route';
+import reportRoutes from './app/api/v1/reports/route';
+import adminRoutes from './app/api/v1/admin/route';
 import { auditRouter } from './app/api/v1/audit/route';
 
 const corsOptions: CorsOptions = {
@@ -28,7 +30,7 @@ const corsOptions: CorsOptions = {
         return callback(null, false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Refresh-Token'],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86400,
 };
@@ -64,6 +66,8 @@ export function createApp() {
     app.use('/api/v1/public', publicRoutes);
     app.use('/api/v1/users', userRoutes);
     app.use('/api/v1/bookmarks', bookmarkRoutes);
+    app.use('/api/v1/reports', reportRoutes);
+    app.use('/api/v1/admin', adminRoutes);
     app.use('/api/v1', auditRouter);
 
     app.use(errorMiddleware);

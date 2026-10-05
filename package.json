@@ -17,6 +17,7 @@
     "docs:contract": "tsx scripts/generate-contract.ts",
     "db:seed": "prisma db seed",
     "db:backfill-slugs": "tsx prisma/backfill-slugs.ts",
+    "db:fix-tags": "tsx prisma/fix-tags.ts",
     "postinstall": "prisma skills sync || exit 0"
   },
   "prisma": {

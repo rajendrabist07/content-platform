@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeTags } from '../tags/tag.normalizer';
 
 export const MAX_AI_INPUT_LENGTH = 10000;
 
@@ -19,16 +20,10 @@ export const aiSuggestionOutputSchema = z.object({
     .max(70, { message: 'Title must not exceed 70 characters' }),
   tags: z
     .array(z.string())
-    .min(3, { message: 'At least 3 tags required' })
-    .max(5, { message: 'At most 5 tags allowed' })
-    .transform((tags) => {
-      const normalized = tags
-        .map((t) => t.toLowerCase().trim())
-        .filter((t) => t.length > 0);
-      return Array.from(new Set(normalized));
-    })
-    .refine((tags) => tags.length >= 3, {
-      message: 'At least 3 unique tags required',
+    .min(1, { message: 'At least 1 tag required' })
+    .transform((tags) => normalizeTags(tags, 5))
+    .refine((tags) => tags.length >= 2, {
+      message: 'At least 2 valid unique tags required after normalization',
     }),
   summary: z.string().trim().min(5, { message: 'Summary must be at least 5 characters' }),
 });

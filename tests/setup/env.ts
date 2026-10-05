@@ -24,6 +24,8 @@ const testDefaults: Record<string, string> = {
   EMAIL_FROM_NAME: 'Content Platform',
   APP_URL: 'http://localhost:3000',
   REQUIRE_VERIFIED_EMAIL: 'false',
+  TURNSTILE_SECRET_KEY: 'test-turnstile-secret',
+  TURNSTILE_ENABLED: 'false',
   ALLOWED_ORIGINS: 'http://localhost:3000,http://localhost:5173',
 };
 

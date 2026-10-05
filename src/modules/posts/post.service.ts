@@ -1,25 +1,48 @@
-import type { PostStatus } from '@prisma/client';
+import type { PostStatus, TrustLevel } from '@prisma/client';
 import crypto from 'crypto';
 import { postRepository, type PublicPostFilters } from './post.repository';
 import { NotFoundError, ConflictError, ForbiddenError } from '../../core/errors/HttpError';
 import type { CreatePostInput, UpdatePostInput } from './post.validation';
 import { logger } from '../../core/logger/logger';
 import { env } from '../../config/env';
+import { validateContentLinks, AUTO_PROMOTION_RULES } from '../../config/trust-policy';
+import { prisma } from '../../lib/prisma';
+import { auditService } from '../audit/audit.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 
 export class PostService {
-  async createPost(input: CreatePostInput, authorId: string, organizationId: string) {
+  async createPost(
+    input: CreatePostInput,
+    authorId: string,
+    organizationId: string,
+    authorTrustLevel: TrustLevel = 'NEW'
+  ) {
+    validateContentLinks(input.content, authorTrustLevel);
+
+    let initialStatus: PostStatus = input.status;
+    let publishedAt: Date | null = null;
+
+    if (input.status === 'PUBLISHED') {
+      if (authorTrustLevel === 'NEW') {
+        initialStatus = 'PENDING_REVIEW';
+        publishedAt = null;
+      } else {
+        initialStatus = 'PUBLISHED';
+        publishedAt = new Date();
+      }
+    }
+
     const slug = await this.generateUniqueSlug(organizationId, input.title);
 
     const post = await postRepository.create({
       title: input.title,
       slug,
       content: input.content,
-      status: input.status,
-      publishedAt: input.status === 'PUBLISHED' ? new Date() : null,
+      status: initialStatus,
+      publishedAt,
       author: { connect: { id: authorId } },
       organization: { connect: { id: organizationId } },
       ...(input.tagIds && input.tagIds.length > 0
@@ -33,11 +56,16 @@ export class PostService {
         : {}),
     });
 
-    logger.info({ postId: post.id, authorId, slug }, 'Post created successfully');
+    logger.info({ postId: post.id, authorId, slug, status: initialStatus }, 'Post created successfully');
     return post;
   }
 
-  async publishPost(postId: string, requestingUserId: string, requestingUserRole: string) {
+  async publishPost(
+    postId: string,
+    requestingUserId: string,
+    requestingUserRole: string,
+    authorTrustLevel: TrustLevel = 'NEW'
+  ) {
     const post = await postRepository.findById(postId);
     if (!post) {
       throw new NotFoundError('Post');
@@ -53,8 +81,21 @@ export class PostService {
       throw new ConflictError('Post is already published');
     }
 
-    const updated = await postRepository.update(postId, { status: 'PUBLISHED', publishedAt: new Date() });
-    logger.info({ postId }, 'Post published');
+    let targetStatus: PostStatus = 'PUBLISHED';
+    let publishedAt: Date | null = new Date();
+
+    if (!isPrivileged && authorTrustLevel === 'NEW') {
+      targetStatus = 'PENDING_REVIEW';
+      publishedAt = null;
+    }
+
+    const updated = await postRepository.update(postId, {
+      status: targetStatus,
+      publishedAt,
+      rejectionReason: null,
+    });
+
+    logger.info({ postId, status: targetStatus }, 'Post publication status updated');
     return updated;
   }
 
@@ -126,7 +167,13 @@ export class PostService {
     return post;
   }
 
-  async updatePost(postId: string, requestingUserId: string, requestingUserRole: string, input: UpdatePostInput) {
+  async updatePost(
+    postId: string,
+    requestingUserId: string,
+    requestingUserRole: string,
+    input: UpdatePostInput,
+    userTrustLevel: TrustLevel = 'NEW'
+  ) {
     const post = await postRepository.findById(postId);
     if (!post) {
       throw new NotFoundError('Post');
@@ -136,6 +183,10 @@ export class PostService {
     const isPrivileged = requestingUserRole === 'ADMIN' || requestingUserRole === 'OWNER';
     if (!isAuthor && !isPrivileged) {
       throw new ForbiddenError('Only the author or an admin can update this post');
+    }
+
+    if (input.content !== undefined) {
+      validateContentLinks(input.content, userTrustLevel);
     }
 
     const updateData: { title?: string; content?: string; slug?: string } = {};
@@ -166,6 +217,53 @@ export class PostService {
 
     await postRepository.softDelete(postId);
     logger.info({ postId, deletedBy: requestingUserId }, 'Post deleted');
+  }
+
+  async checkAndPromoteAuthor(authorId: string): Promise<boolean> {
+    const author = await prisma.user.findUnique({
+      where: { id: authorId },
+      select: { id: true, trustLevel: true, createdAt: true, organizationId: true },
+    });
+
+    if (!author || author.trustLevel !== 'NEW') {
+      return false;
+    }
+
+    const accountAgeMs = Date.now() - author.createdAt.getTime();
+    const accountAgeDays = accountAgeMs / (1000 * 60 * 60 * 24);
+
+    const publishedPostsCount = await prisma.post.count({
+      where: { authorId, status: 'PUBLISHED', deletedAt: null },
+    });
+
+    if (
+      accountAgeDays >= AUTO_PROMOTION_RULES.NEW_TO_MEMBER.minAccountAgeDays &&
+      publishedPostsCount >= AUTO_PROMOTION_RULES.NEW_TO_MEMBER.minApprovedPosts
+    ) {
+      await prisma.user.update({
+        where: { id: authorId },
+        data: { trustLevel: 'MEMBER' },
+      });
+
+      auditService.log({
+        action: 'USER_TRUST_LEVEL_PROMOTED',
+        userId: authorId,
+        organizationId: author.organizationId,
+        resource: 'User',
+        resourceId: authorId,
+        metadata: {
+          previousLevel: 'NEW',
+          newLevel: 'MEMBER',
+          publishedPostsCount,
+          accountAgeDays: Math.floor(accountAgeDays),
+        },
+      });
+
+      logger.info({ userId: authorId }, 'User auto-promoted from NEW to MEMBER');
+      return true;
+    }
+
+    return false;
   }
 
   async likePost(postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
