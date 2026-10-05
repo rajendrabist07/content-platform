@@ -2,12 +2,16 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './core/logger/logger';
 import { prisma } from './lib/prisma';
+import { startJobWorker, stopJobWorker } from './modules/jobs/job.worker';
 import type { Server } from 'http';
 
 const app = createApp();
 
 const server: Server = app.listen(env.PORT, () => {
   logger.info(`Server running on port ${env.PORT}`);
+  if (env.NODE_ENV !== 'test') {
+    startJobWorker(5000);
+  }
 });
 
 let isShuttingDown = false;
@@ -17,6 +21,7 @@ async function gracefulShutdown(signal: string) {
   isShuttingDown = true;
 
   logger.info({ signal }, 'Graceful shutdown signal received, closing connections...');
+  stopJobWorker();
 
   // Force shutdown timer in case connections don't drain
   const forceExitTimer = setTimeout(() => {

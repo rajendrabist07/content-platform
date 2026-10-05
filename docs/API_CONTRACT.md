@@ -102,6 +102,11 @@ Error responses always format as:
 | `DELETE` | `/api/v1/posts/{id}/like` | Unlike a post | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `POST` | `/api/v1/posts/{id}/bookmark` | Bookmark a post | 🔒 Bearer | id (path) | 200/201 Envelope |
 | `DELETE` | `/api/v1/posts/{id}/bookmark` | Remove bookmark from a post | 🔒 Bearer | id (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/quiz/generate` | Generate an AI-grounded comprehension quiz for an article | 🔒 Bearer | postId (path) | 200/201 Envelope |
+| `GET` | `/api/v1/posts/{postId}/quiz` | Get the comprehension quiz for an article (without spoilers/answers) | 🌐 Public | postId (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/quiz/attempt` | Submit answers to an article quiz and receive instant grounded feedback | 🌐 Public | postId (path) | 200/201 Envelope |
+| `POST` | `/api/v1/posts/{postId}/ask` | Ask this article a question and receive a grounded answer with verbatim quotes | 🌐 Public | postId (path) | 200/201 Envelope |
+| `GET` | `/api/v1/posts/{postId}/analytics/comprehension` | Get reader comprehension analytics & confusion points for an article | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `POST` | `/api/v1/posts/{postId}/comments` | Create a comment (or a threaded reply) | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `GET` | `/api/v1/posts/{postId}/comments` | List comments for a post (threaded) | 🔒 Bearer | postId (path) | 200/201 Envelope |
 | `PATCH` | `/api/v1/posts/{postId}/comments/{id}` | Update a comment | 🔒 Bearer | postId (path), id (path) | 200/201 Envelope |

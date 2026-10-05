@@ -9,6 +9,7 @@ import { usersSchemas, usersPaths } from './features/users.docs';
 import { auditSchemas, auditPaths } from './features/audit.docs';
 import { reportsSchemas, reportsPaths } from './features/reports.docs';
 import { adminSchemas, adminPaths } from './features/admin.docs';
+import { comprehensionSchemas, comprehensionPaths } from './features/comprehension.docs';
 import { healthSchemas, healthPaths } from './features/health.docs';
 
 export const openApiDocument = {
@@ -17,13 +18,13 @@ export const openApiDocument = {
         title: 'Chronicle Platform API',
         version: '1.0.0',
         description: `
-Backend API for Chronicle (Organizations, Users, Posts, Comments, Tags, Notifications, AI, Public SEO, Profiles, Engagement, Security, Moderation, Trust & Audit Logs).
+Backend API for Chronicle (Technical Writing You Can Trust & Learn From: Trust Layer, Grounded Comprehension Engine, Multi-Tenant Architecture, Background Job Queue, Security & Audit Logs).
 
 **Response envelope** — every response has the shape \`{ success, data?, message?, statusCode? }\`.
 
 **Errors** — \`success: false\` with a human-readable \`message\` and matching HTTP status code:
 400 (validation), 401 (authentication), 403 (authorization — ownership/role/status), 404 (not found),
-409 (conflict/duplicate), 429 (rate limited), 500 (unexpected server error), 503 (upstream service unavailable).
+409 (conflict/duplicate), 429 (rate limited), 500 (unexpected server error), 503 (upstream AI service unavailable).
 
 **Authentication** — \`POST /auth/register\` and \`POST /auth/login\` return an \`accessToken\`
 (15 min) and a \`refreshToken\` (30 days, DB-backed and revocable via \`POST /auth/logout\` or \`/auth/sessions\`).
@@ -37,12 +38,13 @@ Send \`Authorization: Bearer <accessToken>\` on every protected request.
         { name: 'Auth', description: 'Authentication, email verification, sessions, passwords' },
         { name: 'Users', description: 'User profile management and bookmarks' },
         { name: 'Posts', description: 'Post publishing, reviews, and interactions' },
+        { name: 'Comprehension', description: 'Grounded AI quizzes, "Ask this article" Q&A, and reader confusion analytics' },
         { name: 'Reports', description: 'Trust & Safety content and user reporting' },
         { name: 'Admin Moderation', description: 'Moderation queue, user trust management, and review actions' },
         { name: 'Comments', description: 'Threaded comments on posts' },
         { name: 'Tags', description: 'Canonical tag system' },
         { name: 'Notifications', description: 'In-app notification system' },
-        { name: 'AI', description: 'Grounded AI assistance and comprehension tools' },
+        { name: 'AI', description: 'AI writing assistance and optimization' },
         { name: 'Audit', description: 'Security and audit trail logs' },
     ],
     components: {
@@ -79,6 +81,7 @@ Send \`Authorization: Bearer <accessToken>\` on every protected request.
             ...usersSchemas,
             ...authSchemas,
             ...postsSchemas,
+            ...comprehensionSchemas,
             ...commentsSchemas,
             ...tagsSchemas,
             ...notificationsSchemas,
@@ -94,6 +97,7 @@ Send \`Authorization: Bearer <accessToken>\` on every protected request.
         ...usersPaths,
         ...authPaths,
         ...postsPaths,
+        ...comprehensionPaths,
         ...commentsPaths,
         ...tagsPaths,
         ...notificationsPaths,
