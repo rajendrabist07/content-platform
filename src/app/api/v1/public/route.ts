@@ -16,9 +16,10 @@ router.get('/posts', async (req: Request, res: Response, next: NextFunction) => 
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
     const authorId = typeof req.query.authorId === 'string' ? req.query.authorId : undefined;
     const organizationId = typeof req.query.organizationId === 'string' ? req.query.organizationId : undefined;
+    const sort = req.query.sort === 'oldest' ? 'oldest' : 'newest';
 
     const result = await postService.getPublicPosts(
-      { tag, search, authorId, organizationId },
+      { tag, search, authorId, organizationId, sort },
       page,
       limit
     );

@@ -16,6 +16,7 @@ export interface PublicPostFilters {
   search?: string | undefined;
   authorId?: string | undefined;
   organizationId?: string | undefined;
+  sort?: 'newest' | 'oldest' | undefined;
 }
 
 const defaultPostInclude = {
@@ -56,7 +57,7 @@ export class PostRepository {
     const [data, total] = await prisma.$transaction([
       prisma.post.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip,
         take: limit,
         include: defaultPostInclude,
@@ -102,10 +103,15 @@ export class PostRepository {
         : {}),
     };
 
+    const orderBy: Prisma.PostOrderByWithRelationInput[] =
+      filters.sort === 'oldest'
+        ? [{ publishedAt: 'asc' }, { id: 'asc' }]
+        : [{ publishedAt: 'desc' }, { id: 'desc' }];
+
     const [data, total] = await prisma.$transaction([
       prisma.post.findMany({
         where,
-        orderBy: { publishedAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
         include: defaultPostInclude,

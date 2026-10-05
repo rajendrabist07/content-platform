@@ -1,10 +1,15 @@
 import { tagRepository } from './tag.repository';
 import { postRepository } from '../posts/post.repository';
-import { NotFoundError, ConflictError } from '../../core/errors/HttpError';
+import { NotFoundError, ConflictError, ValidationError } from '../../core/errors/HttpError';
 import { logger } from '../../core/logger/logger';
+import { normalizeTag } from './tag.normalizer';
 
 export class TagService {
-    async createTag(name: string) {
+    async createTag(rawName: string) {
+        const name = normalizeTag(rawName);
+        if (!name) {
+            throw new ValidationError('Tag name is invalid');
+        }
         const existing = await tagRepository.findByName(name);
         if (existing) {
             throw new ConflictError(`Tag "${name}" already exists`);
