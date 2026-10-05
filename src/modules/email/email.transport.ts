@@ -92,8 +92,8 @@ export class BrevoEmailTransport implements EmailTransport {
 }
 
 export function createEmailTransport(): EmailTransport {
-  if (env.EMAIL_PROVIDER === 'brevo' && env.BREVO_API_KEY) {
-    return new BrevoEmailTransport(env.BREVO_API_KEY);
+  if (env.BREVO_API_KEY && env.BREVO_API_KEY.trim() !== '') {
+    return new BrevoEmailTransport(env.BREVO_API_KEY.trim());
   }
   return new ConsoleEmailTransport();
 }
