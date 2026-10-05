@@ -8,6 +8,7 @@ import {
 import { renderEmailVerificationTemplate } from './templates/verification.template';
 import { renderPasswordResetTemplate } from './templates/passwordReset.template';
 import { renderNotificationTemplate } from './templates/notification.template';
+import { renderLoginAlertTemplate } from './templates/loginAlert.template';
 
 export class EmailService {
   private transport: EmailTransport;
@@ -80,6 +81,26 @@ export class EmailService {
     const { html, text, subject } = renderPasswordResetTemplate({
       name,
       resetUrl,
+    });
+
+    await this.sendEmail({
+      to,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  async sendLoginAlertEmail(
+    to: string,
+    name: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    const { html, text, subject } = renderLoginAlertTemplate({
+      name,
+      ipAddress,
+      userAgent,
     });
 
     await this.sendEmail({

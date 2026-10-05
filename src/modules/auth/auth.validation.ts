@@ -10,9 +10,9 @@ export const registerSchema = z
   .object({
     email: z
       .string()
-      .email({ message: 'Invalid email format' })
+      .email({ message: 'Please provide a valid and active email address.' })
       .refine((val) => !isDisposableEmail(val), {
-        message: 'Please use a valid personal or work email address',
+        message: 'Please provide a valid and active email address.',
       }),
     password: passwordSchema,
     name: z.string().min(2, { message: 'Name must be at least 2 characters' }),

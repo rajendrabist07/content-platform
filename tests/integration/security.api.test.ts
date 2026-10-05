@@ -55,7 +55,7 @@ describe('Security & Trust API - Integration', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toMatch(/valid personal or work email/i);
+      expect(res.body.message).toMatch(/Please provide a valid and active email address/i);
     });
   });
 

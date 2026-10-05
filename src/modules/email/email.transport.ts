@@ -17,7 +17,7 @@ export interface EmailTransport {
 export class ConsoleEmailTransport implements EmailTransport {
   async send(options: SendEmailOptions): Promise<void> {
     const fromEmail = options.fromEmail || env.EMAIL_FROM_ADDRESS;
-    const fromName = options.fromName || env.EMAIL_FROM_NAME;
+    const fromName = options.fromName || env.EMAIL_FROM_NAME || 'Chronicle';
 
     logger.info(
       {
@@ -45,7 +45,7 @@ export class BrevoEmailTransport implements EmailTransport {
 
   async send(options: SendEmailOptions): Promise<void> {
     const fromEmail = options.fromEmail || env.EMAIL_FROM_ADDRESS;
-    const fromName = options.fromName || env.EMAIL_FROM_NAME;
+    const fromName = options.fromName || env.EMAIL_FROM_NAME || 'Chronicle';
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);

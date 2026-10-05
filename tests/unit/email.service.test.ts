@@ -189,4 +189,55 @@ describe('Email Infrastructure - Unit Tests', () => {
       expect(mockTransport.send).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
     });
   });
+
+  describe('Email Helper Methods & Templates', () => {
+    it('should build proper verification email URL and dispatch email', async () => {
+      const mockTransport: EmailTransport = {
+        send: vi.fn().mockResolvedValue(undefined),
+      };
+      const service = new EmailService(mockTransport);
+
+      await service.sendVerificationEmail('jane@example.com', 'Jane', 'token-123');
+
+      expect(mockTransport.send).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(mockTransport.send).mock.calls[0]![0];
+      expect(call.to).toBe('jane@example.com');
+      expect(call.subject).toBe('Verify your email address');
+      expect(call.html).toContain('/verify-email?token=token-123');
+      expect(call.text).toContain('/verify-email?token=token-123');
+    });
+
+    it('should build proper password reset email URL and dispatch email', async () => {
+      const mockTransport: EmailTransport = {
+        send: vi.fn().mockResolvedValue(undefined),
+      };
+      const service = new EmailService(mockTransport);
+
+      await service.sendPasswordResetEmail('bob@example.com', 'Bob', 'reset-token-abc');
+
+      expect(mockTransport.send).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(mockTransport.send).mock.calls[0]![0];
+      expect(call.to).toBe('bob@example.com');
+      expect(call.subject).toBe('Reset your password');
+      expect(call.html).toContain('/reset-password?token=reset-token-abc');
+      expect(call.text).toContain('/reset-password?token=reset-token-abc');
+    });
+
+    it('should build proper login alert email with IP and User Agent', async () => {
+      const mockTransport: EmailTransport = {
+        send: vi.fn().mockResolvedValue(undefined),
+      };
+      const service = new EmailService(mockTransport);
+
+      await service.sendLoginAlertEmail('alice@example.com', 'Alice', '192.168.1.1', 'Mozilla/5.0');
+
+      expect(mockTransport.send).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(mockTransport.send).mock.calls[0]![0];
+      expect(call.to).toBe('alice@example.com');
+      expect(call.subject).toContain('Security Alert');
+      expect(call.html).toContain('192.168.1.1');
+      expect(call.html).toContain('Mozilla/5.0');
+      expect(call.text).toContain('192.168.1.1');
+    });
+  });
 });

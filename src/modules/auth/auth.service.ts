@@ -14,6 +14,7 @@ import { logger } from '../../core/logger/logger';
 import { emailService } from '../email/email.service';
 import { auditService } from '../audit/audit.service';
 import { verifyTurnstileToken } from './turnstile.client';
+import { validateEmailDeliverability } from './email.validator';
 import type {
   RegisterInput,
   LoginInput,
@@ -45,7 +46,10 @@ export interface SessionItem {
 
 class AuthService {
   async register(input: RegisterInput, context?: AuthContext) {
-    // 1. Turnstile verification if enabled
+    // 1. Email syntax, MX, and disposable domain verification
+    await validateEmailDeliverability(input.email);
+
+    // 2. Turnstile verification if enabled
     if (env.TURNSTILE_ENABLED) {
       await verifyTurnstileToken(input.captchaToken, context?.ipAddress);
     }
@@ -422,6 +426,11 @@ class AuthService {
       ipAddress: context?.ipAddress,
       userAgent: context?.userAgent,
     });
+
+    // Fire login alert email asynchronously
+    emailService
+      .sendLoginAlertEmail(user.email, user.name, context?.ipAddress, context?.userAgent)
+      .catch((err) => logger.warn({ err, userId: user.id }, 'Failed to send login alert email'));
 
     const accessToken = this.generateAccessToken({
       userId: user.id,

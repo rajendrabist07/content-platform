@@ -20,7 +20,7 @@ export async function requireVerifiedEmail(req: Request, res: Response, next: Ne
 
     if (!user || !user.emailVerifiedAt) {
       return next(
-        new ForbiddenError('Please verify your email address before performing this action')
+        new ForbiddenError('Email verification required. Please verify your email to perform this action.')
       );
     }
 
