@@ -18,15 +18,20 @@ export class PostService {
     input: CreatePostInput,
     authorId: string,
     organizationId: string,
-    authorTrustLevel: TrustLevel = 'NEW'
+    authorTrustLevel: TrustLevel = 'NEW',
+    isPrivileged: boolean = false
   ) {
-    validateContentLinks(input.content, authorTrustLevel);
+    if (!isPrivileged) {
+      validateContentLinks(input.content, authorTrustLevel);
+    } else {
+      validateContentLinks(input.content, 'TRUSTED');
+    }
 
     let initialStatus: PostStatus = input.status;
     let publishedAt: Date | null = null;
 
     if (input.status === 'PUBLISHED') {
-      if (authorTrustLevel === 'NEW') {
+      if (!isPrivileged && authorTrustLevel === 'NEW') {
         initialStatus = 'PENDING_REVIEW';
         publishedAt = null;
       } else {

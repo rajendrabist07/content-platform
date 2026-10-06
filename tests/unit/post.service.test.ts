@@ -133,3 +133,66 @@ describe('PostService - publishPost (authorization)', () => {
         ).rejects.toThrow('Post is already published');
     });
 });
+
+describe('PostService - createPost (trust levels and privilege)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should place post in PENDING_REVIEW when created with PUBLISHED status by unprivileged NEW user', async () => {
+        vi.mocked(postRepository.findBySlug).mockResolvedValue(null);
+        vi.mocked(postRepository.create).mockImplementation(async (data: any) => ({
+            id: 'post-1',
+            ...data,
+        }));
+
+        const result = await postService.createPost(
+            { title: 'New Post', content: 'Content', status: 'PUBLISHED' },
+            'user-1',
+            'org-1',
+            'NEW',
+            false
+        );
+
+        expect(result.status).toBe('PENDING_REVIEW');
+        expect(result.publishedAt).toBeNull();
+    });
+
+    it('should publish immediately when created with PUBLISHED status by privileged user even if trust level is NEW', async () => {
+        vi.mocked(postRepository.findBySlug).mockResolvedValue(null);
+        vi.mocked(postRepository.create).mockImplementation(async (data: any) => ({
+            id: 'post-2',
+            ...data,
+        }));
+
+        const result = await postService.createPost(
+            { title: 'Admin Post', content: 'Admin Content', status: 'PUBLISHED' },
+            'admin-1',
+            'org-1',
+            'NEW',
+            true
+        );
+
+        expect(result.status).toBe('PUBLISHED');
+        expect(result.publishedAt).toBeInstanceOf(Date);
+    });
+
+    it('should publish immediately when created with PUBLISHED status by MEMBER user', async () => {
+        vi.mocked(postRepository.findBySlug).mockResolvedValue(null);
+        vi.mocked(postRepository.create).mockImplementation(async (data: any) => ({
+            id: 'post-3',
+            ...data,
+        }));
+
+        const result = await postService.createPost(
+            { title: 'Member Post', content: 'Member Content', status: 'PUBLISHED' },
+            'member-1',
+            'org-1',
+            'MEMBER',
+            false
+        );
+
+        expect(result.status).toBe('PUBLISHED');
+        expect(result.publishedAt).toBeInstanceOf(Date);
+    });
+});

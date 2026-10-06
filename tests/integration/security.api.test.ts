@@ -147,6 +147,28 @@ describe('Security & Trust API - Integration', () => {
       expect(res.body.data.status).toBe('PENDING_REVIEW');
       expect(res.body.data.publishedAt).toBeNull();
     });
+
+    it('should allow ADMIN / OWNER users to publish posts immediately upon creation even if trustLevel is NEW', async () => {
+      // Create admin user in test organization
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: 'ADMIN', trustLevel: 'NEW' },
+      });
+
+      const res = await request(app)
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          title: 'Admin Instant Article',
+          content: 'This is an official administrative article written with [Documentation](https://chronicle.example.com).',
+          status: 'PUBLISHED',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe('PUBLISHED');
+      expect(res.body.data.publishedAt).not.toBeNull();
+    });
   });
 
   describe('Session Lifecycle Management', () => {

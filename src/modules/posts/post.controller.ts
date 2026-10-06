@@ -17,11 +17,13 @@ export class PostController {
         throw new ValidationError(result.error.issues[0]?.message ?? 'Validation failed');
       }
 
+      const isPrivileged = req.user.role === 'ADMIN' || req.user.role === 'OWNER';
       const post = await postService.createPost(
         result.data,
         req.user.userId,
         req.user.organizationId,
-        (req.user.trustLevel as TrustLevel) || 'NEW'
+        (req.user.trustLevel as TrustLevel) || 'NEW',
+        isPrivileged
       );
 
       res.status(201).json({ success: true, data: toPostDTO(post) });
