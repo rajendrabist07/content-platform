@@ -31,13 +31,8 @@ export class PostService {
     let publishedAt: Date | null = null;
 
     if (input.status === 'PUBLISHED') {
-      if (!isPrivileged && authorTrustLevel === 'NEW') {
-        initialStatus = 'PENDING_REVIEW';
-        publishedAt = null;
-      } else {
-        initialStatus = 'PUBLISHED';
-        publishedAt = new Date();
-      }
+      initialStatus = 'PUBLISHED';
+      publishedAt = new Date();
     }
 
     const slug = await this.generateUniqueSlug(organizationId, input.title);
@@ -86,13 +81,8 @@ export class PostService {
       throw new ConflictError('Post is already published');
     }
 
-    let targetStatus: PostStatus = 'PUBLISHED';
-    let publishedAt: Date | null = new Date();
-
-    if (!isPrivileged && authorTrustLevel === 'NEW') {
-      targetStatus = 'PENDING_REVIEW';
-      publishedAt = null;
-    }
+    const targetStatus: PostStatus = 'PUBLISHED';
+    const publishedAt: Date | null = new Date();
 
     const updated = await postRepository.update(postId, {
       status: targetStatus,

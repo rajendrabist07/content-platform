@@ -132,7 +132,7 @@ describe('Security & Trust API - Integration', () => {
       expect(res.body.message).toMatch(/exceeds maximum permitted links/i);
     });
 
-    it('should place posts created with PUBLISHED status by NEW users into PENDING_REVIEW', async () => {
+    it('should publish posts created with PUBLISHED status by verified authors with clean content immediately', async () => {
       const res = await request(app)
         .post('/api/v1/posts')
         .set('Authorization', `Bearer ${userToken}`)
@@ -144,8 +144,8 @@ describe('Security & Trust API - Integration', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.status).toBe('PENDING_REVIEW');
-      expect(res.body.data.publishedAt).toBeNull();
+      expect(res.body.data.status).toBe('PUBLISHED');
+      expect(res.body.data.publishedAt).not.toBeNull();
     });
 
     it('should allow ADMIN / OWNER users to publish posts immediately upon creation even if trustLevel is NEW', async () => {

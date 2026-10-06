@@ -96,6 +96,38 @@ export class ReportService {
       },
     });
 
+    // 4. Automated Community Moderation: Check if report threshold is reached
+    if (input.targetType === 'POST') {
+      const openReportCount = await prisma.report.count({
+        where: { targetType: 'POST', targetId: input.targetId, status: 'OPEN' },
+      });
+
+      if (openReportCount >= 3) {
+        await prisma.post.update({
+          where: { id: input.targetId },
+          data: {
+            status: 'PENDING_REVIEW',
+            rejectionReason: 'Temporarily quarantined due to multiple community reports for review',
+          },
+        });
+
+        logger.warn(
+          { postId: input.targetId, openReportCount },
+          'Post automatically quarantined due to community report threshold'
+        );
+
+        auditService.log({
+          action: 'POST_AUTO_QUARANTINED',
+          resource: 'Post',
+          resourceId: input.targetId,
+          metadata: {
+            reason: 'community_reports_threshold_reached',
+            openReportCount,
+          },
+        });
+      }
+    }
+
     return report;
   }
 

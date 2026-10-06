@@ -139,7 +139,7 @@ describe('PostService - createPost (trust levels and privilege)', () => {
         vi.clearAllMocks();
     });
 
-    it('should place post in PENDING_REVIEW when created with PUBLISHED status by unprivileged NEW user', async () => {
+    it('should publish immediately when created with PUBLISHED status with safe content by NEW user', async () => {
         vi.mocked(postRepository.findBySlug).mockResolvedValue(null);
         vi.mocked(postRepository.create).mockImplementation(async (data: any) => ({
             id: 'post-1',
@@ -147,15 +147,15 @@ describe('PostService - createPost (trust levels and privilege)', () => {
         }));
 
         const result = await postService.createPost(
-            { title: 'New Post', content: 'Content', status: 'PUBLISHED' },
+            { title: 'New Post', content: 'Content with valid link: [Doc](https://example.com)', status: 'PUBLISHED' },
             'user-1',
             'org-1',
             'NEW',
             false
         );
 
-        expect(result.status).toBe('PENDING_REVIEW');
-        expect(result.publishedAt).toBeNull();
+        expect(result.status).toBe('PUBLISHED');
+        expect(result.publishedAt).toBeInstanceOf(Date);
     });
 
     it('should publish immediately when created with PUBLISHED status by privileged user even if trust level is NEW', async () => {

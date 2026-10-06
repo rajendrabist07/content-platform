@@ -10,12 +10,12 @@ export interface TrustPolicyRules {
 export const TRUST_POLICY: Record<TrustLevel, TrustPolicyRules> = {
   NEW: {
     maxLinksPerPost: 5,
-    maxPostsPerDay: 3,
-    canAutoPublish: false,
+    maxPostsPerDay: 5,
+    canAutoPublish: true,
   },
   MEMBER: {
-    maxLinksPerPost: 20,
-    maxPostsPerDay: 10,
+    maxLinksPerPost: 25,
+    maxPostsPerDay: 20,
     canAutoPublish: true,
   },
   TRUSTED: {

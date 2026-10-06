@@ -174,6 +174,62 @@ describe('Moderation & Reports API - Integration', () => {
       expect(dupRes.body.success).toBe(false);
       expect(dupRes.body.message).toMatch(/already submitted an active report/i);
     });
+
+    it('should automatically quarantine a post into PENDING_REVIEW when 3 distinct users report it', async () => {
+      const post = await prisma.post.create({
+        data: {
+          title: 'Spammy Flagged Post',
+          slug: `flagged-${Date.now()}`,
+          content: 'This post is spam and should be flagged by multiple users.',
+          status: 'PUBLISHED',
+          authorId,
+          organizationId: testOrgId,
+        },
+      });
+
+      // Reporter 1
+      await request(app)
+        .post('/api/v1/reports')
+        .set('Authorization', `Bearer ${reporterToken}`)
+        .send({ targetType: 'POST', targetId: post.id, reason: 'SPAM' });
+
+      // Create Reporter 2
+      const rep2Res = await request(app).post('/api/v1/auth/register').send({
+        email: `rep2-${Date.now()}@chronicle-mod.com`,
+        password: 'Password123!',
+        name: 'Reporter 2',
+        organizationId: testOrgId,
+      });
+      await prisma.user.update({
+        where: { id: rep2Res.body.data.user.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+      await request(app)
+        .post('/api/v1/reports')
+        .set('Authorization', `Bearer ${rep2Res.body.data.accessToken}`)
+        .send({ targetType: 'POST', targetId: post.id, reason: 'SPAM' });
+
+      // Create Reporter 3
+      const rep3Res = await request(app).post('/api/v1/auth/register').send({
+        email: `rep3-${Date.now()}@chronicle-mod.com`,
+        password: 'Password123!',
+        name: 'Reporter 3',
+        organizationId: testOrgId,
+      });
+      await prisma.user.update({
+        where: { id: rep3Res.body.data.user.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+      await request(app)
+        .post('/api/v1/reports')
+        .set('Authorization', `Bearer ${rep3Res.body.data.accessToken}`)
+        .send({ targetType: 'POST', targetId: post.id, reason: 'SPAM' });
+
+      // Verify post has been automatically updated to PENDING_REVIEW
+      const updatedPost = await prisma.post.findUnique({ where: { id: post.id } });
+      expect(updatedPost?.status).toBe('PENDING_REVIEW');
+      expect(updatedPost?.rejectionReason).toContain('community reports');
+    });
   });
 
   describe('Admin Moderation Queue & Post Reviews', () => {
